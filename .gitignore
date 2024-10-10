@@ -97,3 +97,5 @@ tags
 *.exe
 *.out
 *.app
+
+.vscode
