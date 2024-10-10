@@ -24,8 +24,8 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef INDICUS_TESTS_COMMON_H
-#define INDICUS_TESTS_COMMON_H
+#ifndef SINTR_TESTS_COMMON_H
+#define SINTR_TESTS_COMMON_H
 
 #include <gmock/gmock.h>
 
@@ -35,9 +35,9 @@
 
 #include "store/common/common-proto.pb.h"
 #include "store/common/timestamp.h"
-#include "store/indicusstore/indicus-proto.pb.h"
+#include "store/sintrstore/sintr-proto.pb.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 void GenerateTestConfig(int g, int f, std::stringstream &ss);
 
@@ -47,6 +47,6 @@ void PopulateTransaction(const std::map<std::string, Timestamp> &readSet,
 
 void PopulateCommitProof(proto::CommittedProof &proof, int n);
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* INDICUS_TESTS_COMMON_H */
+#endif /* SINTR_TESTS_COMMON_H */

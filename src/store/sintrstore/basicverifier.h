@@ -24,15 +24,15 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef BASIC_VERIFIER_H
-#define BASIC_VERIFIER_H
+#ifndef SINTR_BASIC_VERIFIER_H
+#define SINTR_BASIC_VERIFIER_H
 
 #include <vector>
 #include <mutex>
-#include "store/indicusstore/verifier.h"
+#include "store/sintrstore/verifier.h"
 
 
-namespace indicusstore {
+namespace sintrstore {
 
 
 class BasicVerifier : public Verifier {
@@ -106,6 +106,6 @@ private:
 
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* BASIC_VERIFIER_H */
+#endif /* SINTR_BASIC_VERIFIER_H */

@@ -24,11 +24,11 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#include "store/indicusstore/tests/common.h"
+#include "store/sintrstore/tests/common.h"
 
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 void GenerateTestConfig(int g, int f, std::stringstream &ss) {
   int n = 5 * f + 1;
@@ -80,4 +80,4 @@ void PopulateCommitProof(proto::CommittedProof &proof, int n) {
   }
 }
 
-} // namespace indicusstore
+} // namespace sintrstore

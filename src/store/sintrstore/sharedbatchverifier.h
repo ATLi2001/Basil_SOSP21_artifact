@@ -24,10 +24,10 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef SHARED_BATCH_VERIFIER_H
-#define SHARED_BATCH_VERIFIER_H
+#ifndef SINTR_SHARED_BATCH_VERIFIER_H
+#define SINTR_SHARED_BATCH_VERIFIER_H
 
-#include "store/indicusstore/verifier.h"
+#include "store/sintrstore/verifier.h"
 #include "store/common/stats.h"
 
 #include <boost/interprocess/containers/map.hpp>
@@ -37,7 +37,7 @@
 #include <boost/interprocess/containers/string.hpp>
 #include <boost/interprocess/sync/named_sharable_mutex.hpp>
 
-namespace indicusstore {
+namespace sintrstore {
 
 using namespace boost::interprocess;
 
@@ -75,6 +75,6 @@ class SharedBatchVerifier : public Verifier {
 
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* SHARED_BATCH_VERIFIER_H */
+#endif /* SINTR_SHARED_BATCH_VERIFIER_H */

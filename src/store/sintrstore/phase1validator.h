@@ -24,8 +24,8 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef PHASE1_VALIDATOR_H
-#define PHASE1_VALIDATOR_H
+#ifndef SINTR_PHASE1_VALIDATOR_H
+#define SINTR_PHASE1_VALIDATOR_H
 
 #include <string>
 #include <vector>
@@ -33,11 +33,11 @@
 #include "lib/configuration.h"
 #include "lib/keymanager.h"
 #include "lib/transport.h"
-#include "store/indicusstore/common.h"
-#include "store/indicusstore/indicus-proto.pb.h"
-#include "store/indicusstore/verifier.h"
+#include "store/sintrstore/common.h"
+#include "store/sintrstore/sintr-proto.pb.h"
+#include "store/sintrstore/verifier.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 enum Phase1ValidationState {
   FAST_COMMIT = 0,
@@ -88,6 +88,6 @@ class Phase1Validator {
 
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* PHASE1_VALIDATOR_H */
+#endif /* SINTR_PHASE1_VALIDATOR_H */

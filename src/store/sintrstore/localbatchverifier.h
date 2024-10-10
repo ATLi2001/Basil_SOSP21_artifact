@@ -24,20 +24,20 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef LOCAL_BATCH_VERIFIER_H
-#define LOCAL_BATCH_VERIFIER_H
+#ifndef SINTR_LOCAL_BATCH_VERIFIER_H
+#define SINTR_LOCAL_BATCH_VERIFIER_H
 
-#include "store/indicusstore/verifier.h"
-#include "store/indicusstore/localbatchverifier.h"
+#include "store/sintrstore/verifier.h"
+#include "store/sintrstore/localbatchverifier.h"
 #include "store/common/stats.h"
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 #include "lib/latency.h"
 
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
-namespace indicusstore {
+namespace sintrstore {
 
 class LocalBatchVerifier : public Verifier {
  public:
@@ -118,6 +118,6 @@ class LocalBatchVerifier : public Verifier {
 
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* LOCAL_BATCH_VERIFIER_H */
+#endif /* SINTR_LOCAL_BATCH_VERIFIER_H */

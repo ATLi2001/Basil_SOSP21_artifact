@@ -24,14 +24,14 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#include "store/indicusstore/basicverifier.h"
+#include "store/sintrstore/basicverifier.h"
 
 #include "lib/crypto.h"
 //#include "lib/crypto.cc"
 #include "lib/assert.h"
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 BasicVerifier::BasicVerifier(Transport* transport) : transport(transport), batchTimeoutMicro(ULONG_MAX){
 }
@@ -332,4 +332,4 @@ void BasicVerifier::AdjustBatchSize() {
         this));
 }
 
-} // namespace indicusstore
+} // namespace sintrstore

@@ -24,8 +24,8 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef SHARED_BATCH_SIGNER_H
-#define SHARED_BATCH_SIGNER_H
+#ifndef SINTR_SHARED_BATCH_SIGNER_H
+#define SINTR_SHARED_BATCH_SIGNER_H
 
 #include <condition_variable>
 #include <functional>
@@ -44,12 +44,12 @@
 
 #include "lib/transport.h"
 #include "lib/keymanager.h"
-#include "store/indicusstore/indicus-proto.pb.h"
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/sintr-proto.pb.h"
+#include "store/sintrstore/common.h"
 #include "store/common/stats.h"
-#include "store/indicusstore/batchsigner.h"
+#include "store/sintrstore/batchsigner.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 using namespace boost::interprocess;
 
@@ -140,6 +140,6 @@ class SharedBatchSigner : public BatchSigner {
 
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* SHARED_BATCH_SIGNER_H */
+#endif /* SINTR_SHARED_BATCH_SIGNER_H */

@@ -24,12 +24,12 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#include "store/indicusstore/phase1validator.h"
+#include "store/sintrstore/phase1validator.h"
 
 #include "lib/message.h"
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 Phase1Validator::Phase1Validator(int group, const proto::Transaction *txn,
     const std::string *txnDigest, const transport::Configuration *config,
@@ -216,4 +216,4 @@ bool Phase1Validator::EquivocateVotes(const proto::ConcurrencyControl &cc) {
   return true;
 }
 
-} // namespace indicusstore
+} // namespace sintrstore

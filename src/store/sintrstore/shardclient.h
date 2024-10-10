@@ -1,8 +1,8 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
 /***********************************************************************
  *
- * store/indicus/shardclient.h:
- *   Single shard indicus transactional client interface.
+ * store/sintr/shardclient.h:
+ *   Single shard sintr transactional client interface.
  *
  * Copyright 2021 Florian Suri-Payer <fsp@cs.cornell.edu>
  *                Matthew Burke <matthelb@cs.cornell.edu>
@@ -29,8 +29,8 @@
  *
  **********************************************************************/
 
-#ifndef _INDICUS_SHARDCLIENT_H_
-#define _INDICUS_SHARDCLIENT_H_
+#ifndef _SINTR_SHARDCLIENT_H_
+#define _SINTR_SHARDCLIENT_H_
 
 
 #include "lib/keymanager.h"
@@ -45,15 +45,15 @@
 #include "store/common/transaction.h"
 #include "store/common/frontend/txnclient.h"
 #include "store/common/common-proto.pb.h"
-#include "store/indicusstore/indicus-proto.pb.h"
-#include "store/indicusstore/phase1validator.h"
+#include "store/sintrstore/sintr-proto.pb.h"
+#include "store/sintrstore/phase1validator.h"
 #include "store/common/pinginitiator.h"
 
 #include <map>
 #include <string>
 #include <vector>
 
-namespace indicusstore {
+namespace sintrstore {
 static int callP2FB = 0;
 static int successful_invoke = 0;
 
@@ -477,6 +477,6 @@ virtual void Phase2Equivocate_Simulate(uint64_t id, const proto::Transaction &tx
   proto::Phase2Decision validatedP2Decision;
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* _INDICUS_SHARDCLIENT_H_ */
+#endif /* _SINTR_SHARDCLIENT_H_ */

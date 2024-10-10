@@ -29,13 +29,13 @@
 #include <sstream>
 #include <tuple>
 
-#include "store/indicusstore/common.h"
-#include "store/indicusstore/tests/common.h"
+#include "store/sintrstore/common.h"
+#include "store/sintrstore/tests/common.h"
 #include "lib/assert.h"
 
 #define F 1
 
-namespace indicusstore {
+namespace sintrstore {
 
 class CommonTest : public ::testing::TestWithParam<std::tuple<int, int, bool>> {
  public:
@@ -65,7 +65,7 @@ class CommonTest : public ::testing::TestWithParam<std::tuple<int, int, bool>> {
   int n;
 };
 
-TEST_P(CommonTest, IndicusShardDecideAllCommit) {
+TEST_P(CommonTest, SintrShardDecideAllCommit) {
   std::vector<proto::Phase1Reply> replies;
   proto::Phase1Reply reply;
   for (int i = 0; i < GetN(); ++i) {
@@ -76,13 +76,13 @@ TEST_P(CommonTest, IndicusShardDecideAllCommit) {
   UW_ASSERT(replies.size() == static_cast<size_t>(GetN())); 
 
   bool fast;
-  proto::CommitDecision decision = IndicusShardDecide(replies, config,
+  proto::CommitDecision decision = SintrShardDecide(replies, config,
       IsValidatingProofs(), false, nullptr, fast);
 
   EXPECT_EQ(decision, proto::COMMIT);
 }
 
-TEST_P(CommonTest, IndicusShardDecideOneAbort) {
+TEST_P(CommonTest, SintrShardDecideOneAbort) {
   std::vector<proto::Phase1Reply> replies;
   proto::Phase1Reply reply;
   for (int i = 0; i < GetN() - 1; ++i) {
@@ -99,13 +99,13 @@ TEST_P(CommonTest, IndicusShardDecideOneAbort) {
   UW_ASSERT(replies.size() == static_cast<size_t>(GetN())); 
 
   bool fast;
-  proto::CommitDecision decision = IndicusShardDecide(replies, config,
+  proto::CommitDecision decision = SintrShardDecide(replies, config,
       IsValidatingProofs(), false, nullptr, fast);
 
   EXPECT_EQ(decision, proto::ABORT);
 }
 
-TEST_P(CommonTest, IndicusShardDecideOneInvalidAbortNotCommitted) {
+TEST_P(CommonTest, SintrShardDecideOneInvalidAbortNotCommitted) {
   if (!IsValidatingProofs()) {
     // aborts can only be invalid if we validate proofs
     return;
@@ -125,13 +125,13 @@ TEST_P(CommonTest, IndicusShardDecideOneInvalidAbortNotCommitted) {
   UW_ASSERT(replies.size() == static_cast<size_t>(GetN())); 
 
   bool fast;
-  proto::CommitDecision decision = IndicusShardDecide(replies, config,
+  proto::CommitDecision decision = SintrShardDecide(replies, config,
       IsValidatingProofs(), false, nullptr, fast);
 
   EXPECT_EQ(decision, proto::COMMIT);
 }
 
-TEST_P(CommonTest, IndicusShardDecideOneInvalidAbortNoConflict) {
+TEST_P(CommonTest, SintrShardDecideOneInvalidAbortNoConflict) {
   if (!IsValidatingProofs()) {
     // aborts can only be invalid if we validate proofs
     return;
@@ -151,7 +151,7 @@ TEST_P(CommonTest, IndicusShardDecideOneInvalidAbortNoConflict) {
   UW_ASSERT(replies.size() == static_cast<size_t>(GetN())); 
 
   bool fast;
-  proto::CommitDecision decision = IndicusShardDecide(replies, config,
+  proto::CommitDecision decision = SintrShardDecide(replies, config,
       IsValidatingProofs(), false, nullptr, fast);
 
   EXPECT_EQ(decision, proto::COMMIT);
@@ -159,7 +159,7 @@ TEST_P(CommonTest, IndicusShardDecideOneInvalidAbortNoConflict) {
 
 
 
-TEST_P(CommonTest, IndicusShardDecideAbstainCommit) {
+TEST_P(CommonTest, SintrShardDecideAbstainCommit) {
   std::vector<proto::Phase1Reply> replies;
   proto::Phase1Reply reply;
   for (int i = 0; i < 3 * GetF() + 1; ++i) {
@@ -174,13 +174,13 @@ TEST_P(CommonTest, IndicusShardDecideAbstainCommit) {
   UW_ASSERT(replies.size() == static_cast<size_t>(GetN())); 
 
   bool fast;
-  proto::CommitDecision decision = IndicusShardDecide(replies, config,
+  proto::CommitDecision decision = SintrShardDecide(replies, config,
       IsValidatingProofs(), false, nullptr, fast);
 
   EXPECT_EQ(decision, proto::COMMIT);
 }
 
-TEST_P(CommonTest, IndicusShardDecideAbstainAbort) {
+TEST_P(CommonTest, SintrShardDecideAbstainAbort) {
   std::vector<proto::Phase1Reply> replies;
   proto::Phase1Reply reply;
   for (int i = 0; i < 3 * GetF() + 1; ++i) {
@@ -195,13 +195,13 @@ TEST_P(CommonTest, IndicusShardDecideAbstainAbort) {
   UW_ASSERT(replies.size() == static_cast<size_t>(GetN())); 
 
   bool fast;
-  proto::CommitDecision decision = IndicusShardDecide(replies, config,
+  proto::CommitDecision decision = SintrShardDecide(replies, config,
       IsValidatingProofs(), false, nullptr, fast);
 
   EXPECT_EQ(decision, proto::ABORT);
 }
 
-TEST_P(CommonTest, IndicusDecideAllCommit) {
+TEST_P(CommonTest, SintrDecideAllCommit) {
   std::map<int, std::vector<proto::Phase1Reply>> replies;
   proto::Phase1Reply reply;
   for (int i = 0; i < GetNumGroups(); ++i) {
@@ -212,13 +212,13 @@ TEST_P(CommonTest, IndicusDecideAllCommit) {
     UW_ASSERT(replies[i].size() == static_cast<size_t>(GetN())); 
   }
 
-  proto::CommitDecision decision = IndicusDecide(replies, config,
+  proto::CommitDecision decision = SintrDecide(replies, config,
       IsValidatingProofs(), false, nullptr);
 
   EXPECT_EQ(decision, proto::COMMIT);
 }
 
-TEST_P(CommonTest, IndicusDecideOneAbort) {
+TEST_P(CommonTest, SintrDecideOneAbort) {
   std::map<int, std::vector<proto::Phase1Reply>> replies;
   proto::Phase1Reply reply;
   for (int i = 0; i < GetNumGroups(); ++i) {
@@ -240,7 +240,7 @@ TEST_P(CommonTest, IndicusDecideOneAbort) {
     UW_ASSERT(replies[i].size() == static_cast<size_t>(GetN())); 
   }
 
-  proto::CommitDecision decision = IndicusDecide(replies, config,
+  proto::CommitDecision decision = SintrDecide(replies, config,
       IsValidatingProofs(), false, nullptr);
   EXPECT_EQ(decision, proto::ABORT);
 }

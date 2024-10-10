@@ -24,8 +24,8 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef BATCH_SIGNER_H
-#define BATCH_SIGNER_H
+#ifndef SINTR_BATCH_SIGNER_H
+#define SINTR_BATCH_SIGNER_H
 
 #include <functional>
 #include <vector>
@@ -37,12 +37,12 @@
 
 #include "lib/transport.h"
 #include "lib/keymanager.h"
-#include "store/indicusstore/indicus-proto.pb.h"
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/sintr-proto.pb.h"
+#include "store/sintrstore/common.h"
 #include "store/common/stats.h"
 #include "lib/latency.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 class BatchSigner {
  public:
@@ -80,6 +80,6 @@ class BatchSigner {
 
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* BATCH_SIGNER_H */
+#endif /* SINTR_BATCH_SIGNER_H */

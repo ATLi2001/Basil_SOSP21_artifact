@@ -24,17 +24,17 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef VERIFIER_H
-#define VERIFIER_H
+#ifndef SINTR_VERIFIER_H
+#define SINTR_VERIFIER_H
 
 #include <string>
 
 #include "lib/crypto.h"
 //#include "lib/crypto.cc"
 #include "lib/tcptransport.h"
-//#include "store/indicusstore/common.h"
+//#include "store/sintrstore/common.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
   typedef std::function<void(void*)> verifyCallback;
 
@@ -63,4 +63,4 @@ class Verifier {
 
 } // namespace indiucsstore
 
-#endif /* VERIFIER_H */
+#endif /* SINTR_VERIFIER_H */

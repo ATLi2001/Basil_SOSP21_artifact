@@ -1,8 +1,8 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
 /***********************************************************************
  *
- * store/indicusstore/client.cc:
- *   Client to INDICUS transactional storage system.
+ * store/sintrstore/client.cc:
+ *   Client to SINTR transactional storage system.
  *
  * Copyright 2021 Florian Suri-Payer <fsp@cs.cornell.edu>
  *                Matthew Burke <matthelb@cs.cornell.edu>
@@ -29,14 +29,14 @@
  *
  **********************************************************************/
 
-#include "store/indicusstore/client.h"
+#include "store/sintrstore/client.h"
 
-#include "store/indicusstore/localbatchverifier.h"
-#include "store/indicusstore/basicverifier.h"
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/localbatchverifier.h"
+#include "store/sintrstore/basicverifier.h"
+#include "store/sintrstore/common.h"
 #include <sys/time.h>
 
-namespace indicusstore {
+namespace sintrstore {
 
 using namespace std;
 
@@ -57,7 +57,7 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
     failureEnabled(false), failureActive(false), faulty_counter(0UL),
     consecutiveMax(consecutiveMax) {
 
-  Debug("Initializing Indicus client with id [%lu] %lu", client_id, nshards);
+  Debug("Initializing Sintr client with id [%lu] %lu", client_id, nshards);
   std::cerr<< "P1 Decision Timeout: " <<phase1DecisionTimeout<< std::endl;
   if(params.injectFailure.enabled) stats.Increment("total_byz_clients", 1);
 
@@ -74,7 +74,7 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
         keyManager, verifier, timeServer, phase1DecisionTimeout, consecutiveMax));
   }
 
-  Debug("Indicus client [%lu] created! %lu %lu", client_id, nshards,
+  Debug("Sintr client [%lu] created! %lu %lu", client_id, nshards,
       bclient.size());
   _Latency_Init(&executeLatency, "execute");
   _Latency_Init(&getLatency, "get");
@@ -1322,4 +1322,4 @@ return true;
 
 
 
-} // namespace indicusstore
+} // namespace sintrstore

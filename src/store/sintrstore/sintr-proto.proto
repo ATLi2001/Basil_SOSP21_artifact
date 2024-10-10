@@ -2,7 +2,7 @@ syntax = "proto2";
 
 import "store/common/common-proto.proto";
 
-package indicusstore.proto;
+package sintrstore.proto;
 
 
 enum CommitDecision {

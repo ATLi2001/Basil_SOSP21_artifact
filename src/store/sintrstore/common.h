@@ -24,15 +24,15 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef INDICUS_COMMON_H
-#define INDICUS_COMMON_H
+#ifndef SINTR_COMMON_H
+#define SINTR_COMMON_H
 
 #include "lib/configuration.h"
 #include "lib/keymanager.h"
 #include "store/common/timestamp.h"
-#include "store/indicusstore/indicus-proto.pb.h"
+#include "store/sintrstore/sintr-proto.pb.h"
 #include "lib/latency.h"
-#include "store/indicusstore/verifier.h"
+#include "store/sintrstore/verifier.h"
 #include "lib/tcptransport.h"
 
 #include <map>
@@ -46,7 +46,7 @@
 
 #include "store/common/stats.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 
 
@@ -421,6 +421,6 @@ typedef struct Parameters {
     replicaGossip(replicaGossip) { }
 } Parameters;
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* INDICUS_COMMON_H */
+#endif /* SINTR_COMMON_H */

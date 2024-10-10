@@ -1,8 +1,8 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
 /***********************************************************************
  *
- * store/indicusstore/store.cc:
- *   Key-value store with support for transactions using INDICUS.
+ * store/sintrstore/store.cc:
+ *   Key-value store with support for transactions using SINTR.
  *
  * Copyright 2015 Irene Zhang <iyzhang@cs.washington.edu>
  *                Naveen Kr. Sharma <naveenks@cs.washington.edu>
@@ -29,9 +29,9 @@
  *
  **********************************************************************/
 
-#include "store/indicusstore/store.h"
+#include "store/sintrstore/store.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 using namespace std;
 
@@ -316,4 +316,4 @@ Store::GetPreparedReads(unordered_map<string, set<Timestamp>> &reads)
     }
 }
 
-} // namespace indicusstore
+} // namespace sintrstore

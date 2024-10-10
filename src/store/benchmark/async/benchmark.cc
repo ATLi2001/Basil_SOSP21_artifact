@@ -54,6 +54,7 @@
 #include "store/benchmark/async/tpcc/async/tpcc_client.h"
 #include "store/benchmark/async/smallbank/smallbank_client.h"
 #include "store/indicusstore/client.h"
+#include "store/sintrstore/client.h"
 #include "store/pbftstore/client.h"
 // HotStuff
 #include "store/hotstuffstore/client.h"
@@ -76,6 +77,7 @@ enum protomode_t {
 	PROTO_WEAK,
 	PROTO_STRONG,
   PROTO_INDICUS,
+  PROTO_SINTR,
 	PROTO_PBFT,
     // HotStuff
     PROTO_HOTSTUFF
@@ -317,6 +319,7 @@ const std::string protocol_args[] = {
   "span-occ",
   "span-lock",
   "indicus",
+  "sintr",
 	"pbft",
 // HotStuff
     "hotstuff"
@@ -330,6 +333,7 @@ const protomode_t protomodes[] {
   PROTO_STRONG,
   PROTO_STRONG,
   PROTO_INDICUS,
+  PROTO_SINTR,
       PROTO_PBFT,
   // HotStuff
       PROTO_HOTSTUFF
@@ -548,6 +552,7 @@ transport::Configuration *config;
 KeyManager *keyManager;
 Partitioner *part;
 
+sintrstore::InjectFailureType convertIndicusFailureTypeToSintr(indicusstore::InjectFailureType iift);
 void Cleanup(int signal);
 void FlushStats();
 
@@ -636,7 +641,7 @@ int main(int argc, char **argv) {
       break;
     }
   }
-  if (mode == PROTO_INDICUS && read_quorum == READ_QUORUM_UNKNOWN) {
+  if ((mode == PROTO_INDICUS || mode == PROTO_SINTR) && read_quorum == READ_QUORUM_UNKNOWN) {
     std::cerr << "Unknown read quorum." << std::endl;
     return 1;
   }
@@ -650,7 +655,7 @@ int main(int argc, char **argv) {
       break;
     }
   }
-  if (mode == PROTO_INDICUS && read_messages == READ_MESSAGES_UNKNOWN) {
+  if ((mode == PROTO_INDICUS || mode == PROTO_SINTR) && read_messages == READ_MESSAGES_UNKNOWN) {
     std::cerr << "Unknown read messages." << std::endl;
     return 1;
   }
@@ -674,7 +679,7 @@ int main(int argc, char **argv) {
       break;
     }
   }
-  if (mode == PROTO_INDICUS && read_dep == READ_DEP_UNKNOWN) {
+  if ((mode == PROTO_INDICUS || mode == PROTO_SINTR) && read_dep == READ_DEP_UNKNOWN) {
     std::cerr << "Unknown read dep." << std::endl;
     return 1;
   }
@@ -941,6 +946,96 @@ int main(int argc, char **argv) {
 																					TrueTime(FLAGS_clock_skew, FLAGS_clock_error));
         break;
     }
+    case PROTO_SINTR: {
+        uint64_t readQuorumSize = 0;
+        switch (read_quorum) {
+        case READ_QUORUM_ONE:
+            readQuorumSize = 1;
+            break;
+        case READ_QUORUM_ONE_HONEST:
+            readQuorumSize = config->f + 1;
+            break;
+        case READ_QUORUM_MAJORITY_HONEST:
+            readQuorumSize = config->f * 2 + 1;
+            break;
+        case READ_QUORUM_MAJORITY:
+            readQuorumSize = (config->n + 1) / 2;
+            break;
+        case READ_QUORUM_ALL:
+            readQuorumSize = config->f * 4 + 1;
+            break;
+        default:
+            NOT_REACHABLE();
+        }
+
+        uint64_t readMessages = 0;
+        switch (read_messages) {
+        case READ_MESSAGES_READ_QUORUM:
+            readMessages = readQuorumSize;// + config->f;
+            break;
+        case READ_MESSAGES_MAJORITY:
+            readMessages = (config->n + 1) / 2;
+            break;
+        case READ_MESSAGES_ALL:
+            readMessages = config->n;
+            break;
+        default:
+            NOT_REACHABLE();
+        }
+        Debug("Configuring Sintr to send read messages to %lu replicas and wait for %lu replies.", readMessages, readQuorumSize);
+        UW_ASSERT(readMessages >= readQuorumSize);
+
+        uint64_t readDepSize = 0;
+        switch (read_dep) {
+        case READ_DEP_ONE:
+            readDepSize = 1;
+            break;
+        case READ_DEP_ONE_HONEST:
+            readDepSize = config->f + 1;
+            break;
+        default:
+            NOT_REACHABLE();
+        }
+
+        sintrstore::InjectFailure failure;
+        failure.type = convertIndicusFailureTypeToSintr(injectFailureType);
+        failure.timeMs = FLAGS_indicus_inject_failure_ms + rand() % 100; //offset client failures a bit.
+        //failure.enabled = rand() % 100 < FLAGS_indicus_inject_failure_proportion;
+				//TODO: WARNING: This is a hack based on 72 total clients --> pass total_clients down as flag.
+				//failure.enabled = FLAGS_client_id < floor(72 * FLAGS_indicus_inject_failure_proportion / 100);
+				//	std::cerr << "client_id = " << FLAGS_client_id << " < ?" << (72* FLAGS_indicus_inject_failure_proportion/100) << ". Failure enabled: "<< failure.enabled <<  std::endl;
+				failure.enabled = FLAGS_num_client_hosts * i + FLAGS_client_id < floor(FLAGS_num_client_hosts * FLAGS_num_clients * FLAGS_indicus_inject_failure_proportion / 100);
+					std::cerr << "client_id = " << FLAGS_client_id << "thread_id = " << i << ". Failure enabled: "<< failure.enabled <<  std::endl;
+				failure.frequency = FLAGS_indicus_inject_failure_freq;
+
+        sintrstore::Parameters params(FLAGS_indicus_sign_messages,
+                                        FLAGS_indicus_validate_proofs, FLAGS_indicus_hash_digest,
+                                        FLAGS_indicus_verify_deps, FLAGS_indicus_sig_batch,
+                                        FLAGS_indicus_max_dep_depth, readDepSize,
+																				false, false,
+																				false, false,
+                                        FLAGS_indicus_merkle_branch_factor, failure,
+                                        FLAGS_indicus_multi_threading, FLAGS_indicus_batch_verification,
+																				FLAGS_indicus_batch_verification_size,
+																				false,
+																				false,
+																				false,
+																				FLAGS_indicus_parallel_CCC,
+																				false,
+																				FLAGS_indicus_all_to_all_fb,
+																			  FLAGS_indicus_no_fallback,
+																				FLAGS_indicus_relayP1_timeout,
+																			  false);
+
+        client = new sintrstore::Client(config, clientId,
+                                          FLAGS_num_shards,
+                                          FLAGS_num_groups, closestReplicas, FLAGS_ping_replicas, tport, part,
+                                          FLAGS_tapir_sync_commit, readMessages, readQuorumSize,
+                                          params, keyManager, FLAGS_indicus_phase1DecisionTimeout,
+																					FLAGS_indicus_max_consecutive_abstains,
+																					TrueTime(FLAGS_clock_skew, FLAGS_clock_error));
+        break;
+    }
     case PROTO_PBFT: {
         uint64_t readQuorumSize = 0;
         switch (read_quorum) {
@@ -1136,6 +1231,23 @@ int main(int argc, char **argv) {
   Cleanup(0);
 
 	return 0;
+}
+
+sintrstore::InjectFailureType convertIndicusFailureTypeToSintr(indicusstore::InjectFailureType iift) {
+  switch (iift) {
+    case indicusstore::InjectFailureType::CLIENT_CRASH:
+      return sintrstore::InjectFailureType::CLIENT_CRASH;
+    case indicusstore::InjectFailureType::CLIENT_EQUIVOCATE:
+      return sintrstore::InjectFailureType::CLIENT_EQUIVOCATE;
+    case indicusstore::InjectFailureType::CLIENT_EQUIVOCATE_SIMULATE:
+      return sintrstore::InjectFailureType::CLIENT_EQUIVOCATE_SIMULATE;
+    case indicusstore::InjectFailureType::CLIENT_STALL_AFTER_P1:
+      return sintrstore::InjectFailureType::CLIENT_STALL_AFTER_P1;
+    case indicusstore::InjectFailureType::CLIENT_SEND_PARTIAL_P1:
+      return sintrstore::InjectFailureType::CLIENT_SEND_PARTIAL_P1;
+    default:
+      throw "unexpected inject failure type";
+  }
 }
 
 void Cleanup(int signal) {

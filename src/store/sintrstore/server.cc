@@ -1,7 +1,7 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
 /***********************************************************************
  *
- * store/indicusstore/server.cc:
+ * store/sintrstore/server.cc:
  *   Implementation of a single transactional key-value server.
  *
  * Copyright 2021 Florian Suri-Payer <fsp@cs.cornell.edu>
@@ -30,7 +30,7 @@
  **********************************************************************/
 
 
-#include "store/indicusstore/server.h"
+#include "store/sintrstore/server.h"
 
 #include <bitset>
 #include <queue>
@@ -40,17 +40,17 @@
 
 #include "lib/assert.h"
 #include "lib/tcptransport.h"
-#include "store/indicusstore/common.h"
-#include "store/indicusstore/phase1validator.h"
-#include "store/indicusstore/localbatchsigner.h"
-#include "store/indicusstore/sharedbatchsigner.h"
-#include "store/indicusstore/basicverifier.h"
-#include "store/indicusstore/localbatchverifier.h"
-#include "store/indicusstore/sharedbatchverifier.h"
+#include "store/sintrstore/common.h"
+#include "store/sintrstore/phase1validator.h"
+#include "store/sintrstore/localbatchsigner.h"
+#include "store/sintrstore/sharedbatchsigner.h"
+#include "store/sintrstore/basicverifier.h"
+#include "store/sintrstore/localbatchverifier.h"
+#include "store/sintrstore/sharedbatchverifier.h"
 #include "lib/batched_sigs.h"
 #include <valgrind/memcheck.h>
 
-namespace indicusstore {
+namespace sintrstore {
 
 Server::Server(const transport::Configuration &config, int groupIdx, int idx,
     int numShards, int numGroups, Transport *transport, KeyManager *keyManager,
@@ -84,8 +84,8 @@ Server::Server(const transport::Configuration &config, int groupIdx, int idx,
 
   stats.Increment("total_equiv_received_adopt", 0);
 
-  fprintf(stderr, "Starting Indicus replica. ID: %d, IDX: %d, GROUP: %d\n", id, idx, groupIdx);
-  Debug("Starting Indicus replica %d.", id);
+  fprintf(stderr, "Starting Sintr replica. ID: %d, IDX: %d, GROUP: %d\n", id, idx, groupIdx);
+  Debug("Starting Sintr replica %d.", id);
   transport->Register(this, config, groupIdx, idx);
   _Latency_Init(&committedReadInsertLat, "committed_read_insert_lat");
   _Latency_Init(&verifyLat, "verify_lat");
@@ -5247,4 +5247,4 @@ void Server::ProcessMoveView(const std::string &txnDigest, uint64_t proposed_vie
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-} // namespace indicusstore
+} // namespace sintrstore

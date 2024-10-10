@@ -24,16 +24,16 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#include "store/indicusstore/localbatchverifier.h"
+#include "store/sintrstore/localbatchverifier.h"
 
 #include "lib/crypto.h"
 #include "lib/batched_sigs.h"
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 #include "lib/message.h"
 #include <valgrind/memcheck.h>
 //#include "openssl/ssl.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 LocalBatchVerifier::LocalBatchVerifier(uint64_t merkleBranchFactor, Stats &stats, Transport* transport) :
   merkleBranchFactor(merkleBranchFactor), stats(stats), transport(transport), batchTimeoutMicro(ULONG_MAX) {
@@ -492,4 +492,4 @@ void LocalBatchVerifier::AdjustBatchSize() {
         this));
 }
 
-} // namespace indicusstore
+} // namespace sintrstore

@@ -158,6 +158,7 @@ include store/weakstore/Rules.mk
 include store/indicusstore/Rules.mk
 include store/pbftstore/Rules.mk
 include store/hotstuffstore/Rules.mk
+include store/sintrstore/Rules.mk
 include store/benchmark/async/tpcc/Rules.mk
 include store/Rules.mk
 include store/benchmark/Rules.mk
@@ -307,12 +308,18 @@ hotstuff:
 .PHONY: indicus
 indicus: $(BINS)
 
+.PHONY: sintr
+sintr: $(BINS)
+
 
 .PHONY: all
 all: hotstuff
 	@echo '====== Start Building Indicus ======'
 	$(MAKE) indicus 
 	@echo '====== Finish Building Indicus ======'
+	@echo '====== Start Building Sintr ======'
+	$(MAKE) sintr 
+	@echo '====== Finish Building Sintr ======'
 
 #.PHONY: all
 #all: $(BINS)

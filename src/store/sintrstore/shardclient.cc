@@ -1,8 +1,8 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
 /***********************************************************************
  *
- * store/indicusstore/groupclient.cc:
- *   Single group indicus transactional client.
+ * store/sintrstore/groupclient.cc:
+ *   Single group sintr transactional client.
  *
  * Copyright 2021 Florian Suri-Payer <fsp@cs.cornell.edu>
  *                Matthew Burke <matthelb@cs.cornell.edu>
@@ -29,13 +29,13 @@
  *
  **********************************************************************/
 
-#include "store/indicusstore/shardclient.h"
+#include "store/sintrstore/shardclient.h"
 
 #include <google/protobuf/util/message_differencer.h>
 
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 ShardClient::ShardClient(transport::Configuration *config, Transport *transport,
     uint64_t client_id, int group, const std::vector<int> &closestReplicas_,
@@ -2185,4 +2185,4 @@ void ShardClient::WritebackFB_fast(std::string txnDigest, proto::Writeback &wb) 
 }
 
 
-} // namespace indicus
+} // namespace sintr

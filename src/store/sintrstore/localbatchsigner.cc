@@ -24,11 +24,11 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#include "store/indicusstore/localbatchsigner.h"
+#include "store/sintrstore/localbatchsigner.h"
 
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 LocalBatchSigner::LocalBatchSigner(Transport *transport, KeyManager *keyManager, Stats &stats,
     uint64_t batchTimeoutMicro, uint64_t batchSize, uint64_t id,
@@ -385,4 +385,4 @@ void LocalBatchSigner::ManageCallbacks(void* result){  //should take bool or the
 }
 
 
-} // namespace indicusstore
+} // namespace sintrstore

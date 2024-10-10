@@ -1,8 +1,8 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
 /***********************************************************************
  *
- * store/indicusstore/client.h:
- *   Indicus client interface.
+ * store/sintrstore/client.h:
+ *   Sintr client interface.
  *
  * Copyright 2021 Florian Suri-Payer <fsp@cs.cornell.edu>
  *                Matthew Burke <matthelb@cs.cornell.edu>
@@ -29,8 +29,8 @@
  *
  **********************************************************************/
 
-#ifndef _INDICUS_CLIENT_H_
-#define _INDICUS_CLIENT_H_
+#ifndef _SINTR_CLIENT_H_
+#define _SINTR_CLIENT_H_
 
 #include "lib/assert.h"
 #include "lib/keymanager.h"
@@ -43,8 +43,8 @@
 #include "store/common/truetime.h"
 #include "store/common/frontend/client.h"
 #include "store/common/frontend/bufferclient.h"
-#include "store/indicusstore/shardclient.h"
-#include "store/indicusstore/indicus-proto.pb.h"
+#include "store/sintrstore/shardclient.h"
+#include "store/sintrstore/sintr-proto.pb.h"
 #include <sys/time.h>
 #include "store/common/stats.h"
 #include <unistd.h>
@@ -57,7 +57,7 @@
 #define RESULT_SYSTEM_ABORTED 2
 #define RESULT_MAX_RETRIES 3
 
-namespace indicusstore {
+namespace sintrstore {
 
 static uint64_t start_time = 0;
 static uint64_t total_failure_injections=0;
@@ -302,6 +302,6 @@ class Client : public ::Client {
   struct Latency_t commitLatency;
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* _INDICUS_CLIENT_H_ */
+#endif /* _SINTR_CLIENT_H_ */

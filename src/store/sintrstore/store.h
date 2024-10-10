@@ -1,8 +1,8 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
 /***********************************************************************
  *
- * store/indicusstore/store.h:
- *   Key-value store with support for transactions using INDICUS.
+ * store/sintrstore/store.h:
+ *   Key-value store with support for transactions using SINTR.
  *
  * Copyright 2015 Irene Zhang <iyzhang@cs.washington.edu>
  *                Naveen Kr. Sharma <naveenks@cs.washington.edu>
@@ -29,8 +29,8 @@
  *
  **********************************************************************/
 
-#ifndef _INDICUS_STORE_H_
-#define _INDICUS_STORE_H_
+#ifndef _SINTR_STORE_H_
+#define _SINTR_STORE_H_
 
 #include "lib/assert.h"
 #include "lib/message.h"
@@ -44,7 +44,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace indicusstore {
+namespace sintrstore {
 
 class Store : public TxnStore
 {
@@ -80,6 +80,6 @@ private:
     std::unordered_set<uint64_t> active;
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* _INDICUS_STORE_H_ */
+#endif /* _SINTR_STORE_H_ */

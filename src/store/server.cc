@@ -45,6 +45,7 @@
 #include "store/tapirstore/server.h"
 #include "store/weakstore/server.h"
 #include "store/indicusstore/server.h"
+#include "store/sintrstore/server.h"
 #include "store/pbftstore/replica.h"
 #include "store/pbftstore/server.h"
 // HotStuff
@@ -53,6 +54,7 @@
 
 #include "store/benchmark/async/tpcc/tpcc-proto.pb.h"
 #include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 
 #include <gflags/gflags.h>
 #include <thread>
@@ -63,6 +65,7 @@ enum protocol_t {
 	PROTO_WEAK,
 	PROTO_STRONG,
   PROTO_INDICUS,
+  PROTO_SINTR,
 	PROTO_PBFT,
     // HotStuff
     PROTO_HOTSTUFF
@@ -102,6 +105,7 @@ const std::string protocol_args[] = {
   "weak",
   "strong",
   "indicus",
+  "sintr",
 	"pbft",
     "hotstuff"
 };
@@ -110,6 +114,7 @@ const protocol_t protos[] {
   PROTO_WEAK,
   PROTO_STRONG,
   PROTO_INDICUS,
+  PROTO_SINTR,
       PROTO_PBFT,
       PROTO_HOTSTUFF
 };
@@ -472,7 +477,7 @@ int main(int argc, char **argv) {
       break;
     }
   }
-  if (proto == PROTO_INDICUS && occ_type == OCC_TYPE_UNKNOWN) {
+  if ((proto == PROTO_INDICUS || proto == PROTO_SINTR) && occ_type == OCC_TYPE_UNKNOWN) {
     std::cerr << "Unknown occ type." << std::endl;
     return 1;
   }
@@ -486,7 +491,7 @@ int main(int argc, char **argv) {
       break;
     }
   }
-  if (proto == PROTO_INDICUS && read_dep == READ_DEP_UNKNOWN) {
+  if ((proto == PROTO_INDICUS || proto == PROTO_SINTR) && read_dep == READ_DEP_UNKNOWN) {
     std::cerr << "Unknown read dep." << std::endl;
     return 1;
   }
@@ -580,6 +585,57 @@ int main(int argc, char **argv) {
       server = new indicusstore::Server(config, FLAGS_group_idx,
                                         FLAGS_replica_idx, FLAGS_num_shards, FLAGS_num_groups, tport,
                                         &keyManager, params, timeDelta, indicusOCCType, part,
+                                        FLAGS_indicus_sig_batch_timeout);
+      break;
+  }
+  case PROTO_SINTR: {
+      uint64_t readDepSize = 0;
+      switch (read_dep) {
+      case READ_DEP_ONE:
+          readDepSize = 1;
+          break;
+      case READ_DEP_ONE_HONEST:
+          readDepSize = config.f + 1;
+          break;
+      default:
+          NOT_REACHABLE();
+      }
+      sintrstore::OCCType sintrOCCType;
+      switch (occ_type) {
+      case OCC_TYPE_TAPIR:
+          sintrOCCType = sintrstore::TAPIR;
+          break;
+      case OCC_TYPE_MVTSO:
+          sintrOCCType = sintrstore::MVTSO;
+          break;
+      default:
+          NOT_REACHABLE();
+      }
+      uint64_t timeDelta = (FLAGS_indicus_time_delta / 1000) << 32;
+      timeDelta = timeDelta | (FLAGS_indicus_time_delta % 1000) * 1000;
+
+
+      sintrstore::Parameters params(FLAGS_indicus_sign_messages,
+                                      FLAGS_indicus_validate_proofs, FLAGS_indicus_hash_digest,
+                                      FLAGS_indicus_verify_deps, FLAGS_indicus_sig_batch,
+                                      FLAGS_indicus_max_dep_depth, readDepSize,
+                                      FLAGS_indicus_read_reply_batch, FLAGS_indicus_adjust_batch_size,
+                                      FLAGS_indicus_shared_mem_batch, FLAGS_indicus_shared_mem_verify,
+                                      FLAGS_indicus_merkle_branch_factor, sintrstore::InjectFailure(),
+                                      FLAGS_indicus_multi_threading, FLAGS_indicus_batch_verification,
+																			FLAGS_indicus_batch_verification_size,
+																			FLAGS_indicus_mainThreadDispatching,
+																			FLAGS_indicus_dispatchMessageReceive,
+																			FLAGS_indicus_parallel_reads,
+																			FLAGS_indicus_parallel_CCC,
+																			FLAGS_indicus_dispatchCallbacks,
+																			FLAGS_indicus_all_to_all_fb,
+																		  FLAGS_indicus_no_fallback, FLAGS_indicus_relayP1_timeout,
+																		  FLAGS_indicus_replica_gossip);
+      Debug("Starting new server object");
+      server = new sintrstore::Server(config, FLAGS_group_idx,
+                                        FLAGS_replica_idx, FLAGS_num_shards, FLAGS_num_groups, tport,
+                                        &keyManager, params, timeDelta, sintrOCCType, part,
                                         FLAGS_indicus_sig_batch_timeout);
       break;
   }
@@ -709,7 +765,7 @@ int main(int argc, char **argv) {
   CALLGRIND_START_INSTRUMENTATION;
 	//SET THREAD AFFINITY if running multi_threading:
 	//if(FLAGS_indicus_multi_threading){
-	if((proto == PROTO_INDICUS || proto == PROTO_PBFT)&& FLAGS_indicus_multi_threading){
+	if((proto == PROTO_INDICUS || proto == PROTO_PBFT || proto == PROTO_SINTR) && FLAGS_indicus_multi_threading){
 		cpu_set_t cpuset;
 		CPU_ZERO(&cpuset);
 		//bool hyperthreading = true;

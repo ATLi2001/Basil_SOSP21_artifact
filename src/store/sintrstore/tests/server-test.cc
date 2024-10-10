@@ -31,14 +31,14 @@
 #include "lib/assert.h"
 #include "lib/transport.h"
 #include "store/common/partitioner.h"
-#include "store/indicusstore/server.h"
-#include "store/indicusstore/tests/common.h"
+#include "store/sintrstore/server.h"
+#include "store/sintrstore/tests/common.h"
 
 #define F 1
 #define G 3
 #define S 3
 
-namespace indicusstore {
+namespace sintrstore {
 
 class MockTransportAddress : public TransportAddress {
  public:

@@ -24,14 +24,14 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#include "store/indicusstore/sharedbatchsigner.h"
+#include "store/sintrstore/sharedbatchsigner.h"
 
 #include "lib/message.h"
 #include "lib/batched_sigs.h"
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 #include <mutex>
 
-namespace indicusstore {
+namespace sintrstore {
 
 SharedBatchSigner::SharedBatchSigner(Transport *transport,
     KeyManager *keyManager, Stats &stats, uint64_t batchTimeoutMicro,
@@ -314,4 +314,4 @@ void SharedBatchSigner::asyncMessageToSign(::google::protobuf::Message* msg,
       return;
 }
 
-} // namespace indicusstore
+} // namespace sintrstore

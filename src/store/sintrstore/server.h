@@ -1,7 +1,7 @@
 // -*- mode: c++; c-file-style: "k&r"; c-basic-offset: 4 -*-
 /***********************************************************************
  *
- * store/indicusstore/server.h:
+ * store/sintrstore/server.h:
  *   A single transactional server replica.
  *
  * Copyright 2021 Florian Suri-Payer <fsp@cs.cornell.edu>
@@ -29,8 +29,8 @@
  *
  **********************************************************************/
 
-#ifndef _INDICUS_SERVER_H_
-#define _INDICUS_SERVER_H_
+#ifndef _SINTR_SERVER_H_
+#define _SINTR_SERVER_H_
 
 #include "lib/latency.h"
 #include "lib/transport.h"
@@ -39,11 +39,11 @@
 #include "store/common/partitioner.h"
 #include "store/common/timestamp.h"
 #include "store/common/truetime.h"
-#include "store/indicusstore/common.h"
-#include "store/indicusstore/store.h"
-#include "store/indicusstore/indicus-proto.pb.h"
-#include "store/indicusstore/batchsigner.h"
-#include "store/indicusstore/verifier.h"
+#include "store/sintrstore/common.h"
+#include "store/sintrstore/store.h"
+#include "store/sintrstore/sintr-proto.pb.h"
+#include "store/sintrstore/batchsigner.h"
+#include "store/sintrstore/verifier.h"
 #include <sys/time.h>
 
 #include <set>
@@ -60,7 +60,7 @@
 
 //#include "lib/threadpool.cc"
 
-namespace indicusstore {
+namespace sintrstore {
 
 class ServerTest;
 
@@ -641,6 +641,6 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
   //Latency_t waitOnProtoLock;
 };
 
-} // namespace indicusstore
+} // namespace sintrstore
 
-#endif /* _INDICUS_SERVER_H_ */
+#endif /* _SINTR_SERVER_H_ */

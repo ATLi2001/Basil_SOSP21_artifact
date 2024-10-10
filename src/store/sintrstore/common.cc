@@ -24,7 +24,7 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#include "store/indicusstore/common.h"
+#include "store/sintrstore/common.h"
 
 #include <sstream>
 #include <list>
@@ -39,7 +39,7 @@
 
 #include "lib/batched_sigs.h"
 
-namespace indicusstore {
+namespace sintrstore {
 
 void* BoolPointerWrapper(std::function<bool()> func){
     if(func()){
@@ -1905,4 +1905,4 @@ int64_t GetLogGroup(const proto::Transaction &txn, const std::string &txnDigest)
   return txn.involved_groups(groupIdx);
 }
 
-} // namespace indicusstore
+} // namespace sintrstore

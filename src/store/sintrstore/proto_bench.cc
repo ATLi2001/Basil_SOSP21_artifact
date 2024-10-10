@@ -26,7 +26,7 @@
  **********************************************************************/
 #include "lib/latency.h"
 #include "lib/message.h"
-#include "store/indicusstore/indicus-proto.pb.h"
+#include "store/sintrstore/sintr-proto.pb.h"
 #include "store/common/common-proto.pb.h"
 #include "lib/crypto.h"
 
@@ -79,16 +79,16 @@ int main(int argc, char *argv[]) {
 
 
   Notice("===================================");
-  Notice("Running indicusstore::proto bench for %lu iterations with data size %lu.",
+  Notice("Running sintrstore::proto bench for %lu iterations with data size %lu.",
       FLAGS_iterations, FLAGS_size);
   for (uint64_t i = 0; i < FLAGS_iterations; ++i) {
       std::string s;
       GenerateRandomString(FLAGS_size, rd, s);
 
-      indicusstore::proto::Phase1* p1 = new indicusstore::proto::Phase1();
+      sintrstore::proto::Phase1* p1 = new sintrstore::proto::Phase1();
       p1->set_req_id(0);
 
-      indicusstore::proto::Transaction *txn = new indicusstore::proto::Transaction();
+      sintrstore::proto::Transaction *txn = new sintrstore::proto::Transaction();
       txn->set_client_id(0);
       txn->set_client_seq_num(0);
       txn->add_involved_groups(0);
@@ -110,10 +110,10 @@ int main(int argc, char *argv[]) {
 
   //////////////
 
-      indicusstore::proto::Phase1Reply* p1reply = new indicusstore::proto::Phase1Reply();
+      sintrstore::proto::Phase1Reply* p1reply = new sintrstore::proto::Phase1Reply();
       p1reply->set_req_id(0);
-      indicusstore::proto::ConcurrencyControl *cc = new indicusstore::proto::ConcurrencyControl();
-      cc->set_ccr(indicusstore::proto::ConcurrencyControl::COMMIT);
+      sintrstore::proto::ConcurrencyControl *cc = new sintrstore::proto::ConcurrencyControl();
+      cc->set_ccr(sintrstore::proto::ConcurrencyControl::COMMIT);
       *cc->mutable_txn_digest() = s;
       cc->set_involved_group(1);
 
@@ -125,18 +125,18 @@ int main(int argc, char *argv[]) {
 
 
   ///////////
-      indicusstore::proto::Writeback* wb = new indicusstore::proto::Writeback();
+      sintrstore::proto::Writeback* wb = new sintrstore::proto::Writeback();
 
-      indicusstore::proto::GroupedSignatures *grp_sigs = new indicusstore::proto::GroupedSignatures();
-      indicusstore::proto::Signatures *sigs = new indicusstore::proto::Signatures();
+      sintrstore::proto::GroupedSignatures *grp_sigs = new sintrstore::proto::GroupedSignatures();
+      sintrstore::proto::Signatures *sigs = new sintrstore::proto::Signatures();
       for(int i =0; i <6; ++i){
-        indicusstore::proto::Signature *sig = sigs->add_sigs();
+        sintrstore::proto::Signature *sig = sigs->add_sigs();
         sig->set_process_id(0);
         *sig->mutable_signature() = crypto::Sign(privKey, s);
       }
       (*grp_sigs->mutable_grouped_sigs())[0] = *sigs;
 
-      wb->set_decision(indicusstore::proto::CommitDecision::COMMIT);
+      wb->set_decision(sintrstore::proto::CommitDecision::COMMIT);
       *wb->mutable_txn_digest() = s;
       *wb->mutable_p1_sigs() = *grp_sigs ;
       wb->set_p2_view(0);

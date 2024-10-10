@@ -24,7 +24,7 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#include "store/indicusstore/sharedbatchverifier.h"
+#include "store/sintrstore/sharedbatchverifier.h"
 
 #include "lib/crypto.h"
 #include "lib/message.h"
@@ -33,7 +33,7 @@
 
 #include <boost/container/container_fwd.hpp>
 
-namespace indicusstore {
+namespace sintrstore {
 
 SharedBatchVerifier::SharedBatchVerifier(uint64_t merkleBranchFactor,
     Stats &stats) : merkleBranchFactor(merkleBranchFactor), stats(stats) {
@@ -101,4 +101,4 @@ void SharedBatchVerifier::Complete(bool multithread, bool force_complete){
   return; //placeholder function to satisfy interface.
 }
 
-} // namespace indicusstore
+} // namespace sintrstore
