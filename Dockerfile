@@ -1,4 +1,4 @@
-ARG nproc=1
+ARG nproc=2
 
 FROM amd64/ubuntu:20.04
 ENV TZ="America/New_York" \
@@ -79,6 +79,6 @@ WORKDIR /home/dependencies
 # Installing Intel TBB
 RUN wget https://registrationcenter-download.intel.com/akdlm/IRC_NAS/e6ff8e9c-ee28-47fb-abd7-5c524c983e1c/l_BaseKit_p_2024.2.1.100.sh
 RUN sh ./l_BaseKit_p_2024.2.1.100.sh -a --silent --eula accept --components intel.oneapi.lin.tbb.devel
-RUN source /opt/intel/oneapi/setvars.sh
+# RUN source /opt/intel/oneapi/setvars.sh
 
 WORKDIR /home
