@@ -44,6 +44,7 @@
 #include "store/common/frontend/client.h"
 #include "store/common/frontend/bufferclient.h"
 #include "store/sintrstore/shardclient.h"
+#include "store/sintrstore/client2client.h"
 #include "store/sintrstore/sintr-proto.pb.h"
 #include <sys/time.h>
 #include "store/common/stats.h"
@@ -73,7 +74,8 @@ class Client : public ::Client {
       uint64_t readMessages, uint64_t readQuorumSize,
       Parameters params, KeyManager *keyManager, uint64_t phase1DecisionTimeout,
       uint64_t consecutiveMax = 1UL,
-      TrueTime timeserver = TrueTime(0,0));
+      TrueTime timeserver = TrueTime(0,0),
+      transport::Configuration *clients_config = NULL);
   virtual ~Client();
 
   // Begin a transaction.
@@ -244,6 +246,8 @@ class Client : public ::Client {
 
   /* Configuration State */
   transport::Configuration *config;
+  // client to client transport configuration state
+  transport::Configuration *clients_config;
   // Unique ID for this client.
   uint64_t client_id;
   // Number of shards.
@@ -254,6 +258,8 @@ class Client : public ::Client {
   Transport *transport;
   // Client for each shard
   std::vector<ShardClient *> bclient;
+  // client for other clients
+  Client2Client *c2client;
   Partitioner *part;
   bool syncCommit;
   const bool pingReplicas;

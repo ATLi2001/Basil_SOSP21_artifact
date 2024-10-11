@@ -131,6 +131,7 @@ enum read_messages_t {
  */
 DEFINE_uint64(client_id, 0, "unique identifier for client");
 DEFINE_string(config_path, "", "path to shard configuration file");
+DEFINE_string(clients_config_path, "", "path to client transport configuration file");
 DEFINE_uint64(num_shards, 1, "number of shards in the system");
 DEFINE_uint64(num_groups, 1, "number of replica groups in the system");
 DEFINE_bool(ping_replicas, false, "determine latency to replicas via pings");
@@ -549,6 +550,7 @@ std::vector<::BenchmarkClient *> benchClients;
 std::vector<std::thread *> threads;
 Transport *tport;
 transport::Configuration *config;
+transport::Configuration *clients_config;
 KeyManager *keyManager;
 Partitioner *part;
 
@@ -806,6 +808,16 @@ int main(int argc, char **argv) {
   }
   config = new transport::Configuration(configStream);
 
+  std::ifstream clientsConfigStream(FLAGS_clients_config_path);
+  if (mode == PROTO_SINTR && clientsConfigStream.fail()) {
+    std::cerr << "Did not provide valid clients config path for Sintr: " << FLAGS_clients_config_path
+              << std::endl;
+    return -1;
+  }
+  else if(mode == PROTO_SINTR) {
+    clients_config = new transport::Configuration(clientsConfigStream);
+  }
+
 	crypto::KeyType keyType;
   switch (FLAGS_indicus_key_type) {
   case 0:
@@ -1033,7 +1045,8 @@ int main(int argc, char **argv) {
                                           FLAGS_tapir_sync_commit, readMessages, readQuorumSize,
                                           params, keyManager, FLAGS_indicus_phase1DecisionTimeout,
 																					FLAGS_indicus_max_consecutive_abstains,
-																					TrueTime(FLAGS_clock_skew, FLAGS_clock_error));
+																					TrueTime(FLAGS_clock_skew, FLAGS_clock_error),
+                                          clients_config);
         break;
     }
     case PROTO_PBFT: {

@@ -305,21 +305,15 @@ hotstuff:
 	@echo '====== Finish Building HotStuff ======'
 
 
-.PHONY: indicus
-indicus: $(BINS)
-
 .PHONY: sintr
 sintr: $(BINS)
 
 
 .PHONY: all
 all: hotstuff
-	@echo '====== Start Building Indicus ======'
-	$(MAKE) indicus 
-	@echo '====== Finish Building Indicus ======'
-	@echo '====== Start Building Sintr ======'
+	@echo '====== Start Building Indicus and Sintr ======'
 	$(MAKE) sintr 
-	@echo '====== Finish Building Sintr ======'
+	@echo '====== Finish Building Indicus and Sintr ======'
 
 #.PHONY: all
 #all: $(BINS)
