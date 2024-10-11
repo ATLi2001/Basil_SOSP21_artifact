@@ -132,10 +132,10 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
     for (auto b : bclient) {
       b->SetFailureFlag(failureActive);
     }
+    c2client->SetFailureFlag(failureActive);
     if(failureActive) stats.Increment("failure_attempts", 1);
     if(failureEnabled) stats.Increment("total_fresh_tx_byz", 1);
     if(!failureEnabled) stats.Increment("total_fresh_tx_honest", 1);
-
   }
 
   transport->Timer(0, [this, bcb, btcb, timeout]() {
@@ -145,6 +145,7 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
         for (auto sclient : bclient) {
           sclient->StartPings();
         }
+        c2client->StartPings();
       }
       first = false;
     }

@@ -66,6 +66,10 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
   virtual bool SendPing(size_t replica, const PingMessage &ping);
 
+  void SetFailureFlag(bool f) {
+    failureActive = f;
+  }
+
  private:
   const uint64_t client_id; // Unique ID for this client.
   Transport *transport; // Transport layer.
@@ -76,6 +80,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   const Parameters params;
   KeyManager *keyManager;
   Verifier *verifier;
+  bool failureActive;
 
   uint64_t lastReqId;
   proto::Transaction txn;
