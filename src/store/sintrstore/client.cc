@@ -47,7 +47,7 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
     Partitioner *part, bool syncCommit, uint64_t readMessages,
     uint64_t readQuorumSize, Parameters params,
     KeyManager *keyManager, uint64_t phase1DecisionTimeout, uint64_t consecutiveMax, TrueTime timeServer,
-    transport::Configuration *clients_config)
+    transport::Configuration *clients_config, uint64_t client_transport_id)
     : config(config), client_id(id), nshards(nShards), ngroups(nGroups),
     transport(transport), part(part), syncCommit(syncCommit), pingReplicas(pingReplicas),
     readMessages(readMessages), readQuorumSize(readQuorumSize),
@@ -56,7 +56,7 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
     timeServer(timeServer), first(true), startedPings(false),
     client_seq_num(0UL), lastReqId(0UL), getIdx(0UL),
     failureEnabled(false), failureActive(false), faulty_counter(0UL),
-    consecutiveMax(consecutiveMax), clients_config(clients_config) {
+    consecutiveMax(consecutiveMax), clients_config(clients_config), client_transport_id(client_transport_id) {
 
   Debug("Initializing Sintr client with id [%lu] %lu", client_id, nshards);
   std::cerr<< "P1 Decision Timeout: " <<phase1DecisionTimeout<< std::endl;
@@ -77,7 +77,10 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
 
   // create client for other clients
   // right now group is always 0, maybe configure later
-  c2client = new Client2Client(clients_config, transport, client_id, 0, pingReplicas, params, keyManager, verifier, timeServer);
+  c2client = new Client2Client(
+    clients_config, transport, client_id, 0, pingReplicas, 
+    params, keyManager, verifier, timeServer, client_transport_id
+  );
 
   Debug("Sintr client [%lu] created! %lu %lu", client_id, nshards,
       bclient.size());

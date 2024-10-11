@@ -1039,6 +1039,7 @@ int main(int argc, char **argv) {
 																				FLAGS_indicus_relayP1_timeout,
 																			  false);
 
+        uint64_t client_transport_id = FLAGS_num_clients * FLAGS_client_id + i;
         client = new sintrstore::Client(config, clientId,
                                           FLAGS_num_shards,
                                           FLAGS_num_groups, closestReplicas, FLAGS_ping_replicas, tport, part,
@@ -1046,7 +1047,7 @@ int main(int argc, char **argv) {
                                           params, keyManager, FLAGS_indicus_phase1DecisionTimeout,
 																					FLAGS_indicus_max_consecutive_abstains,
 																					TrueTime(FLAGS_clock_skew, FLAGS_clock_error),
-                                          clients_config);
+                                          clients_config, client_transport_id);
         break;
     }
     case PROTO_PBFT: {

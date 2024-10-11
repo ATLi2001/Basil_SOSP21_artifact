@@ -37,13 +37,13 @@ namespace sintrstore {
 Client2Client::Client2Client(transport::Configuration *config, Transport *transport,
       uint64_t client_id, int group, bool pingClients,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
-      TrueTime &timeServer) :
+      TrueTime &timeServer, uint64_t client_transport_id) :
       PingInitiator(this, transport, config->n),
       client_id(client_id), transport(transport), config(config), group(group),
       timeServer(timeServer), pingClients(pingClients), params(params),
-      keyManager(keyManager), verifier(verifier), lastReqId(0UL) {
+      keyManager(keyManager), verifier(verifier), lastReqId(0UL), client_transport_id(client_transport_id) {
   
-  transport->Register(this, *config, group, client_id); 
+  transport->Register(this, *config, group, client_transport_id); 
 }
 
 Client2Client::~Client2Client() {
@@ -53,6 +53,7 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
       const std::string &type, const std::string &data, void *meta_data) {
 
   if (type == ping.GetTypeName()) {
+    Debug("ping received");
     ping.ParseFromString(data);
     HandlePingResponse(ping);
   }
@@ -122,7 +123,10 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
 }
 
 bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
-  transport->SendMessageToReplica(this, group, replica, ping);
+  // do not ping self
+  if (replica != client_transport_id) {
+    transport->SendMessageToReplica(this, group, replica, ping);
+  }
   return true;
 }
     

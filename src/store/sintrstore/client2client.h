@@ -57,7 +57,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   Client2Client(transport::Configuration *config, Transport *transport,
       uint64_t client_id, int group, bool pingClients,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
-      TrueTime &timeServer);
+      TrueTime &timeServer, uint64_t client_transport_id);
   virtual ~Client2Client();
 
   virtual void ReceiveMessage(const TransportAddress &remote,
@@ -72,6 +72,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
  private:
   const uint64_t client_id; // Unique ID for this client.
+  const uint64_t client_transport_id; // unique transport id for this client
   Transport *transport; // Transport layer.
   transport::Configuration *config;
   const int group; // which group this client belongs to
