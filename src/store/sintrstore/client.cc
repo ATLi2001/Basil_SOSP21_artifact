@@ -77,7 +77,7 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
 
   // create client for other clients
   // right now group is always 0, maybe configure later
-  c2client = new Client2Client(config, transport, client_id, 0, pingReplicas, params, keyManager, verifier, timeServer);
+  c2client = new Client2Client(clients_config, transport, client_id, 0, pingReplicas, params, keyManager, verifier, timeServer);
 
   Debug("Sintr client [%lu] created! %lu %lu", client_id, nshards,
       bclient.size());
