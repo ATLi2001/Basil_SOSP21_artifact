@@ -39,9 +39,9 @@ Client2Client::Client2Client(transport::Configuration *config, Transport *transp
       Parameters params, KeyManager *keyManager, Verifier *verifier,
       TrueTime &timeServer, uint64_t client_transport_id) :
       PingInitiator(this, transport, config->n),
-      client_id(client_id), transport(transport), config(config), group(group),
+      client_id(client_id), client_transport_id(client_transport_id), transport(transport), config(config), group(group),
       timeServer(timeServer), pingClients(pingClients), params(params),
-      keyManager(keyManager), verifier(verifier), lastReqId(0UL), client_transport_id(client_transport_id) {
+      keyManager(keyManager), verifier(verifier), lastReqId(0UL) {
   
   transport->Register(this, *config, group, client_transport_id); 
 }
@@ -56,6 +56,10 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
     Debug("ping received");
     ping.ParseFromString(data);
     HandlePingResponse(ping);
+  }
+  else if (type == beginValidateTxnMessage.GetTypeName()) {
+    beginValidateTxnMessage.ParseFromString(data);
+    HandleBeginValidateTxnMessage(beginValidateTxnMessage);
   }
   else {
     Panic("Received unexpected message type: %s", type.c_str());
@@ -129,6 +133,20 @@ bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
   }
   return true;
 }
-    
+
+void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &txnName) {
+  proto::BeginValidateTxnMessage beginValidateTxnMessage = proto::BeginValidateTxnMessage();
+  beginValidateTxnMessage.set_client_id(client_id);
+  beginValidateTxnMessage.set_client_seq_num(id);
+  beginValidateTxnMessage.set_txn_name(txnName);
+
+  Debug("SendToAll beginValidateTxnMessage");
+  transport->SendMessageToAll(this, beginValidateTxnMessage);
+}
+
+void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage) {
+  Debug("HandleBeginValidateTxnMessage: from client %lu, seq num %lu", beginValidateTxnMessage.client_id(), beginValidateTxnMessage.client_seq_num());
+}
+
 } // namespace sintrstore
 

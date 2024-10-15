@@ -66,11 +66,18 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
   virtual bool SendPing(size_t replica, const PingMessage &ping);
 
+  // start up the sintr validation for current transaction id and name 
+  // sends BeginValidateTxnMessage to peers
+  void SendBeginValidateTxnMessage(uint64_t id, const std::string &txnName);
+
   void SetFailureFlag(bool f) {
     failureActive = f;
   }
 
  private:
+
+  void HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage);
+
   const uint64_t client_id; // Unique ID for this client.
   const uint64_t client_transport_id; // unique transport id for this client
   Transport *transport; // Transport layer.
@@ -87,6 +94,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   proto::Transaction txn;
   std::map<std::string, std::string> readValues;
 
+  proto::BeginValidateTxnMessage beginValidateTxnMessage;
   PingMessage ping;
 };
 

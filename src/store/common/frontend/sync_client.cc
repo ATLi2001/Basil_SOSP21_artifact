@@ -33,10 +33,10 @@ SyncClient::SyncClient(Client *client) : client(client) {
 SyncClient::~SyncClient() {
 }
 
-void SyncClient::Begin(uint32_t timeout) {
+void SyncClient::Begin(uint32_t timeout, const std::string &txnName) {
   Promise promise(timeout);
   client->Begin([promisePtr = &promise](uint64_t id){ promisePtr->Reply(0); },
-      [](){}, timeout);
+      [](){}, timeout, false, txnName);
   promise.GetReply();
 }
 

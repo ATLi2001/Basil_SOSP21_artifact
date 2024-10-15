@@ -4,6 +4,15 @@ import "store/common/common-proto.proto";
 
 package sintrstore.proto;
 
+// Sintr specific messages
+
+message BeginValidateTxnMessage {
+  required uint64 client_id = 1;
+  required uint64 client_seq_num = 2;
+  required string txn_name = 3;
+}
+
+// From indicus
 
 enum CommitDecision {
   COMMIT = 0;
