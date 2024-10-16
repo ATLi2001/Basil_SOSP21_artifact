@@ -29,6 +29,8 @@
  **********************************************************************/
 
 #include "store/sintrstore/client2client.h"
+#include "store/sintrstore/validation/validation_client.h"
+#include "store/sintrstore/validation/tpcc/delivery.h"
 
 #include <google/protobuf/util/message_differencer.h>
 
@@ -145,7 +147,20 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
 }
 
 void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage) {
-  Debug("HandleBeginValidateTxnMessage: from client %lu, seq num %lu", beginValidateTxnMessage.client_id(), beginValidateTxnMessage.client_seq_num());
+  Debug(
+    "HandleBeginValidateTxnMessage: from client %lu, seq num %lu", 
+    beginValidateTxnMessage.client_id(), 
+    beginValidateTxnMessage.client_seq_num()
+  );
+
+  // create the appropriate validation transaction
+  std::mt19937 gen(0);
+  ::tpcc::ValidationDelivery valTxn = ::tpcc::ValidationDelivery(0, 0, 0, gen);
+  ValidationClient *valClient = new ValidationClient(); 
+  ::SyncClient syncClient(valClient);
+  valTxn.Validate(syncClient);
+
+  delete valClient;
 }
 
 } // namespace sintrstore

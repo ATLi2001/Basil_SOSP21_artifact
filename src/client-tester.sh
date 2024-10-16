@@ -40,14 +40,14 @@ for i in `seq 1 $((CLIENTS-1))`; do
     --num_shards $NUM_GROUPS \
     --protocol_mode $PROTOCOL --num_keys $NUM_KEYS_IN_DB --benchmark rw --num_ops_txn $NUM_OPS_TX \
     --exp_duration $DURATION --client_id $i --warmup_secs 0 --cooldown_secs 0 \
-    --key_selector zipf --zipf_coefficient $ZIPF --indicus_key_path $KEY_PATH --ping-replicas &> client-$i.out &
+    --key_selector zipf --zipf_coefficient $ZIPF --indicus_key_path $KEY_PATH &> client-$i.out &
 done;
 #valgrind
 DEBUG=store/$STORE/* store/benchmark/async/benchmark --config_path $CONFIG --clients_config_path $CLIENTS_CONFIG --num_groups $NUM_GROUPS \
   --num_shards $NUM_GROUPS --protocol_mode $PROTOCOL --num_keys $NUM_KEYS_IN_DB --benchmark rw \
   --num_ops_txn $NUM_OPS_TX --exp_duration $DURATION --client_id 0 --warmup_secs 0 \
   --cooldown_secs 0 --key_selector zipf --zipf_coefficient $ZIPF \
-  --stats_file "stats-0.json" --indicus_key_path $KEY_PATH --ping-replicas &> client-0.out &
+  --stats_file "stats-0.json" --indicus_key_path $KEY_PATH &> client-0.out &
 
 
 sleep $((DURATION+3))
