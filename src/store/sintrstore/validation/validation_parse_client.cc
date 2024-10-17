@@ -23,29 +23,45 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef VALIDATION_DELIVERY_H
-#define VALIDATION_DELIVERY_H
 
+#include "store/sintrstore/validation/validation_parse_client.h"
 #include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
-#include "store/common/frontend/sync_client.h"
+#include "store/sintrstore/validation/tpcc/delivery.h"
+#include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
 
-namespace tpcc {
 
-class ValidationDelivery : public ValidationTPCCTransaction {
- public:
-  // constructor with no randomness (all fields directly initialized)
-  ValidationDelivery(uint32_t timeout, uint32_t w_id, uint32_t d_id, 
-    uint32_t o_carrier_id, uint32_t ol_delivery_d);
-  virtual ~ValidationDelivery();
-  virtual transaction_status_t Validate(::SyncClient &client);
+namespace sintrstore {
 
- private:
-  uint32_t w_id;
-  uint32_t d_id;
-  uint32_t o_carrier_id;
-  uint32_t ol_delivery_d;
+ValidationTransaction *ValidationParseClient::Parse(const proto::TxnState& txnState) {
+  std::string txn_name(txnState.txn_name());
+  
+  size_t pos = txn_name.find("_");
+  if (pos == std::string::npos) {
+    Panic("Received unexpected txn name: %s", txn_name.c_str());
+  }
+
+  std::string txn_bench = txn_name.substr(0, pos);
+  std::string txn_type = txn_name.substr(pos+1);
+
+  if (txn_bench == "tpcc") {
+    if (txn_type == "delivery") {
+      ::tpcc::validation::proto::Delivery valTxnData = ::tpcc::validation::proto::Delivery();
+      valTxnData.ParseFromString(txnState.txn_data());
+      return new ::tpcc::ValidationDelivery(
+        timeout, 
+        valTxnData.w_id(), 
+        valTxnData.d_id(), 
+        valTxnData.o_carrier_id(), 
+        valTxnData.ol_delivery_d()
+      );
+    }
+    else {
+      Panic("Received unexpected txn type: %s", txn_type.c_str());
+    }
+  }
+  else {
+    Panic("Received unexpected txn benchmark: %s", txn_bench.c_str());
+  }
 };
 
-} // namespace tpcc
-
-#endif /* VALIDATION_DELIVERY_H */
+} // namespace sintrstore

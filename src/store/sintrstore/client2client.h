@@ -68,7 +68,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
   // start up the sintr validation for current transaction id and name 
   // sends BeginValidateTxnMessage to peers
-  void SendBeginValidateTxnMessage(uint64_t id, const std::string &txnName);
+  void SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState);
 
   void SetFailureFlag(bool f) {
     failureActive = f;

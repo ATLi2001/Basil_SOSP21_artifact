@@ -28,10 +28,10 @@
   
 namespace tpcc {
 
-ValidationDelivery::ValidationDelivery(uint32_t timeout, uint32_t w_id, uint32_t d_id,
-    std::mt19937 &gen)
-    : ValidationTPCCTransaction(timeout), Delivery(w_id, d_id, gen) {
-}
+ValidationDelivery::ValidationDelivery(uint32_t timeout, uint32_t w_id, uint32_t d_id, 
+  uint32_t o_carrier_id, uint32_t ol_delivery_d) 
+  : ValidationTPCCTransaction(timeout), w_id(w_id), d_id(d_id), 
+    o_carrier_id(o_carrier_id), ol_delivery_d(ol_delivery_d) {}
 
 ValidationDelivery::~ValidationDelivery() {
 }
@@ -44,6 +44,8 @@ transaction_status_t ValidationDelivery::Validate(::SyncClient &client) {
   Debug("Warehouse: %u", w_id);
   Debug("District: %u", d_id);
   // std::cerr << "warehouse: " << w_id << std::endl;
+  std::cerr << "w_id: " << w_id << " d_id: " << d_id << " o_carrier_id: " << o_carrier_id << " ol_delivery_d: " << ol_delivery_d << std::endl;
+  return COMMITTED;
 
   client.Begin(timeout);
 

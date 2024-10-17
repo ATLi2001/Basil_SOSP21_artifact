@@ -30,7 +30,9 @@
 
 #include "store/sintrstore/client2client.h"
 #include "store/sintrstore/validation/validation_client.h"
-#include "store/sintrstore/validation/tpcc/delivery.h"
+#include "store/sintrstore/validation/validation_transaction.h"
+#include "store/sintrstore/validation/validation_parse_client.h"
+#include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
 
 #include <google/protobuf/util/message_differencer.h>
 
@@ -141,7 +143,17 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
   beginValidateTxnMessage.set_client_id(client_id);
   beginValidateTxnMessage.set_client_seq_num(id);
   proto::TxnState *protoTxnState = new proto::TxnState();
-  protoTxnState->ParseFromString(txnState);
+  // test data
+  ::tpcc::validation::proto::Delivery delivery = ::tpcc::validation::proto::Delivery();
+  delivery.set_w_id(0);
+  delivery.set_d_id(0);
+  delivery.set_o_carrier_id(0);
+  delivery.set_ol_delivery_d(0);
+  std::string deliveryStr;
+  delivery.SerializeToString(&deliveryStr);
+  protoTxnState->set_txn_name("tpcc_delivery");
+  protoTxnState->set_txn_data(deliveryStr);
+  // protoTxnState->ParseFromString(txnState);
   beginValidateTxnMessage.set_allocated_txn_state(protoTxnState);
 
   Debug("SendToAll beginValidateTxnMessage");
@@ -156,12 +168,14 @@ void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnM
   );
 
   // create the appropriate validation transaction
-  // ::tpcc::ValidationDelivery valTxn = ::tpcc::ValidationDelivery(0, 0, 0, 0, 0);
-  // ValidationClient *valClient = new ValidationClient(); 
-  // ::SyncClient syncClient(valClient);
-  // valTxn.Validate(syncClient);
+  ValidationParseClient valParseClient = ValidationParseClient(0);
+  ValidationTransaction *valTxn = valParseClient.Parse(beginValidateTxnMessage.txn_state());
+  ValidationClient *valClient = new ValidationClient(); 
+  ::SyncClient syncClient(valClient);
+  valTxn->Validate(syncClient);
 
-  // delete valClient;
+  delete valClient;
+  delete valTxn;
 }
 
 } // namespace sintrstore

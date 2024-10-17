@@ -23,29 +23,27 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef VALIDATION_DELIVERY_H
-#define VALIDATION_DELIVERY_H
+#ifndef _VALIDATION_PARSE_CLIENT_H_
+#define _VALIDATION_PARSE_CLIENT_H_
 
-#include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
-#include "store/common/frontend/sync_client.h"
+#include "lib/assert.h"
+#include "store/sintrstore/sintr-proto.pb.h"
+#include "store/sintrstore/validation/validation_transaction.h"
 
-namespace tpcc {
+namespace sintrstore {
 
-class ValidationDelivery : public ValidationTPCCTransaction {
+// this class takes parses TxnState proto message into the underlying validation transaction
+class ValidationParseClient {
  public:
-  // constructor with no randomness (all fields directly initialized)
-  ValidationDelivery(uint32_t timeout, uint32_t w_id, uint32_t d_id, 
-    uint32_t o_carrier_id, uint32_t ol_delivery_d);
-  virtual ~ValidationDelivery();
-  virtual transaction_status_t Validate(::SyncClient &client);
+  ValidationParseClient(uint32_t timeout): timeout(timeout) {}
+  ~ValidationParseClient(){}
+
+  ValidationTransaction *Parse(const proto::TxnState& txnState);
 
  private:
-  uint32_t w_id;
-  uint32_t d_id;
-  uint32_t o_carrier_id;
-  uint32_t ol_delivery_d;
+  uint32_t timeout;
 };
 
-} // namespace tpcc
+} // namespace sintrstore
 
-#endif /* VALIDATION_DELIVERY_H */
+#endif
