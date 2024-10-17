@@ -28,10 +28,11 @@
   
 namespace tpcc {
 
-ValidationOrderStatus::ValidationOrderStatus(uint32_t timeout, uint32_t w_id,
-    uint32_t c_c_last, uint32_t c_c_id, std::mt19937 &gen) :
+ValidationOrderStatus::ValidationOrderStatus(uint32_t timeout, uint32_t w_id, uint32_t d_id, uint32_t c_w_id, 
+    uint32_t c_d_id, uint32_t c_id, uint32_t o_id, bool c_by_last_name, std::string c_last) :
     ValidationTPCCTransaction(timeout),
-    OrderStatus(w_id, c_c_last, c_c_id, gen) {
+    w_id(w_id), d_id(d_id), c_w_id(c_w_id), c_d_id(c_d_id), c_id(c_id), o_id(o_id), 
+    c_by_last_name(c_by_last_name), c_last(c_last) {
 }
 
 ValidationOrderStatus::~ValidationOrderStatus() {

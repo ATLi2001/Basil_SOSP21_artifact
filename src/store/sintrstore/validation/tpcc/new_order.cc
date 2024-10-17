@@ -30,10 +30,14 @@
 
 namespace tpcc {
 
-ValidationNewOrder::ValidationNewOrder(uint32_t timeout, uint32_t w_id, uint32_t C,
-    uint32_t num_warehouses, std::mt19937 &gen) :
+ValidationNewOrder::ValidationNewOrder(uint32_t timeout, uint32_t w_id, uint32_t d_id, 
+    uint32_t c_id, uint8_t ol_cnt, uint8_t rbk, std::vector<uint32_t> o_ol_i_ids,
+    std::vector<uint32_t> o_ol_supply_w_ids, std::vector<uint8_t> o_ol_quantities, 
+    uint32_t o_entry_d, bool all_local) :
     ValidationTPCCTransaction(timeout),
-    NewOrder(w_id, C, num_warehouses, gen) {
+    w_id(w_id), d_id(d_id), c_id(c_id), ol_cnt(ol_cnt), rbk(rbk), o_ol_i_ids(o_ol_i_ids),
+    o_ol_supply_w_ids(o_ol_supply_w_ids), o_ol_quantities(o_ol_quantities), 
+    o_entry_d(o_entry_d), all_local(all_local) {
 }
 
 ValidationNewOrder::~ValidationNewOrder() {

@@ -30,10 +30,11 @@
   
 namespace tpcc {
 
-ValidationPayment::ValidationPayment(uint32_t timeout, uint32_t w_id, uint32_t c_c_last,
-    uint32_t c_c_id, uint32_t num_warehouses, std::mt19937 &gen) :
+ValidationPayment::ValidationPayment(uint32_t timeout, uint32_t w_id, uint32_t d_id, uint32_t d_w_id, uint32_t c_w_id,
+    uint32_t c_d_id, uint32_t c_id, uint32_t h_amount, uint32_t h_date, bool c_by_last_name, std::string c_last) :
     ValidationTPCCTransaction(timeout),
-    Payment(w_id, c_c_last, c_c_id, num_warehouses, gen) {
+    w_id(w_id), d_id(d_id), d_w_id(d_w_id), c_w_id(c_w_id),
+    c_d_id(c_d_id), c_id(c_id), h_amount(h_amount), h_date(h_date), c_by_last_name(c_by_last_name), c_last(c_last) {
 }
 
 ValidationPayment::~ValidationPayment() {

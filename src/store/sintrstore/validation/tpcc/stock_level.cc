@@ -30,9 +30,9 @@
 
 namespace tpcc {
 
-ValidationStockLevel::ValidationStockLevel(uint32_t timeout, uint32_t w_id, uint32_t d_id,
-    std::mt19937 &gen) : ValidationTPCCTransaction(timeout),
-    StockLevel(w_id, d_id, gen) {
+ValidationStockLevel::ValidationStockLevel(uint32_t timeout, uint32_t w_id, uint32_t d_id, uint8_t min_quantity) :
+  ValidationTPCCTransaction(timeout),
+  w_id(w_id), d_id(d_id), min_quantity(min_quantity) {
 }
 
 ValidationStockLevel::~ValidationStockLevel() {

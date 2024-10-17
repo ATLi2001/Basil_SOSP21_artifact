@@ -33,13 +33,27 @@
 
 namespace tpcc {
 
-class ValidationNewOrder : public ValidationTPCCTransaction, public NewOrder {
+class ValidationNewOrder : public ValidationTPCCTransaction {
  public:
-  ValidationNewOrder(uint32_t timeout, uint32_t w_id, uint32_t C,
-      uint32_t num_warehouses, std::mt19937 &gen);
+  // constructor with no randomness (all fields directly initialized)
+  ValidationNewOrder(uint32_t timeout, uint32_t w_id, uint32_t d_id, 
+    uint32_t c_id, uint8_t ol_cnt, uint8_t rbk, std::vector<uint32_t> o_ol_i_ids,
+    std::vector<uint32_t> o_ol_supply_w_ids, std::vector<uint8_t> o_ol_quantities, 
+    uint32_t o_entry_d, bool all_local);
   virtual ~ValidationNewOrder();
   virtual transaction_status_t Validate(::SyncClient &client);
 
+ private:
+  uint32_t w_id;
+  uint32_t d_id;
+  uint32_t c_id;
+  uint8_t ol_cnt;
+  uint8_t rbk;
+  std::vector<uint32_t> o_ol_i_ids;
+  std::vector<uint32_t> o_ol_supply_w_ids;
+  std::vector<uint8_t> o_ol_quantities;
+  uint32_t o_entry_d;
+  bool all_local;
 };
 
 } // namespace tpcc

@@ -32,13 +32,17 @@
 
 namespace tpcc {
 
-class ValidationStockLevel : public ValidationTPCCTransaction, public StockLevel {
+class ValidationStockLevel : public ValidationTPCCTransaction {
  public:
-  ValidationStockLevel(uint32_t timeout, uint32_t w_id, uint32_t d_id,
-      std::mt19937 &gen);
+  // constructor with no randomness (all fields directly initialized)
+  ValidationStockLevel(uint32_t timeout, uint32_t w_id, uint32_t d_id, uint8_t min_quantity);
   virtual ~ValidationStockLevel();
   virtual transaction_status_t Validate(::SyncClient &client);
 
+ private:
+  uint32_t w_id;
+  uint32_t d_id;
+  uint8_t min_quantity;
 };
 
 } // namespace tpcc
