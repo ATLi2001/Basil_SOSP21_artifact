@@ -124,7 +124,7 @@ Client::~Client()
  * abort() are part of this transaction.
  */
 void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
-      uint32_t timeout, bool retry, const std::string &txnName) {
+      uint32_t timeout, bool retry, const std::string &txnState) {
   // fail the current txn iff failuer timer is up and
   // the number of txn is a multiple of frequency
   //only fail fresh transactions
@@ -141,7 +141,7 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
     if(!failureEnabled) stats.Increment("total_fresh_tx_honest", 1);
   }
 
-  transport->Timer(0, [this, bcb, btcb, timeout, txnName]() {
+  transport->Timer(0, [this, bcb, btcb, timeout, txnState]() {
     if (pingReplicas) {
       if (!first && !startedPings) {
         startedPings = true;
@@ -159,7 +159,7 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
     Debug("BEGIN [%lu]", client_seq_num);
 
     // begin sintr validation
-    c2client->SendBeginValidateTxnMessage(client_seq_num, txnName);
+    c2client->SendBeginValidateTxnMessage(client_seq_num, txnState);
 
     txn = proto::Transaction();
     txn.set_client_id(client_id);

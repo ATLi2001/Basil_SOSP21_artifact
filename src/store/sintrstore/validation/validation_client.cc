@@ -36,7 +36,7 @@ ValidationClient::~ValidationClient() {
 
 // Begin a transaction.
 void ValidationClient::Begin(begin_callback bcb, begin_timeout_callback btcb,
-    uint32_t timeout, bool retry, const std::string &txnName) {};
+    uint32_t timeout, bool retry, const std::string &txnState) {};
 
 // Get the value corresponding to key.
 void ValidationClient::Get(const std::string &key, get_callback gcb,

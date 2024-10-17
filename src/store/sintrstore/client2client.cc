@@ -136,11 +136,13 @@ bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
   return true;
 }
 
-void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &txnName) {
+void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState) {
   proto::BeginValidateTxnMessage beginValidateTxnMessage = proto::BeginValidateTxnMessage();
   beginValidateTxnMessage.set_client_id(client_id);
   beginValidateTxnMessage.set_client_seq_num(id);
-  beginValidateTxnMessage.set_txn_name(txnName);
+  proto::TxnState *protoTxnState = new proto::TxnState();
+  protoTxnState->ParseFromString(txnState);
+  beginValidateTxnMessage.set_allocated_txn_state(protoTxnState);
 
   Debug("SendToAll beginValidateTxnMessage");
   transport->SendMessageToAll(this, beginValidateTxnMessage);
@@ -154,13 +156,12 @@ void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnM
   );
 
   // create the appropriate validation transaction
-  std::mt19937 gen(0);
-  ::tpcc::ValidationDelivery valTxn = ::tpcc::ValidationDelivery(0, 0, 0, gen);
-  ValidationClient *valClient = new ValidationClient(); 
-  ::SyncClient syncClient(valClient);
-  valTxn.Validate(syncClient);
+  // ::tpcc::ValidationDelivery valTxn = ::tpcc::ValidationDelivery(0, 0, 0, 0, 0);
+  // ValidationClient *valClient = new ValidationClient(); 
+  // ::SyncClient syncClient(valClient);
+  // valTxn.Validate(syncClient);
 
-  delete valClient;
+  // delete valClient;
 }
 
 } // namespace sintrstore
