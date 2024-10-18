@@ -161,16 +161,18 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
 }
 
 void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage) {
+  uint64_t curr_client_id = beginValidateTxnMessage.client_id();
+  uint64_t curr_client_seq_num = beginValidateTxnMessage.client_seq_num();
   Debug(
     "HandleBeginValidateTxnMessage: from client %lu, seq num %lu", 
-    beginValidateTxnMessage.client_id(), 
-    beginValidateTxnMessage.client_seq_num()
+    curr_client_id, 
+    curr_client_seq_num
   );
 
   // create the appropriate validation transaction
   ValidationParseClient valParseClient = ValidationParseClient(0);
   ValidationTransaction *valTxn = valParseClient.Parse(beginValidateTxnMessage.txn_state());
-  ValidationClient *valClient = new ValidationClient(); 
+  ValidationClient *valClient = new ValidationClient(curr_client_id, curr_client_seq_num); 
   ::SyncClient syncClient(valClient);
   valTxn->Validate(syncClient);
 

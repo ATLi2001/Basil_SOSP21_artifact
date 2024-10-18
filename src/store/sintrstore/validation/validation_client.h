@@ -30,17 +30,20 @@
 #include "store/common/frontend/client.h"
 #include "store/common/promise.h"
 #include "store/common/timestamp.h"
+#include "store/sintrstore/sintr-proto.pb.h"
+#include "store/sintrstore/shardclient.h"
 
 #include <string>
 #include <vector>
+#include <map>
 
 namespace sintrstore {
 
-// this acts as a dummy workload client for validation
+// this acts as a dummy workload client for validation of one transaction at a time
 // validation transactions will invoke this through a SyncClient interface
 class ValidationClient : public ::Client {
  public:
-  ValidationClient();
+  ValidationClient(uint64_t txn_client_id, uint64_t txn_client_seq_num);
   virtual ~ValidationClient();
 
   // Begin a transaction.
@@ -62,7 +65,32 @@ class ValidationClient : public ::Client {
   virtual void Abort(abort_callback acb, abort_timeout_callback atcb, uint32_t timeout) override;
 
  private:
+  struct PendingValidationGet {
+    PendingValidationGet(uint64_t reqId) : reqId(reqId) {}
+    ~PendingValidationGet() {}
+    uint64_t reqId;
+    std::string key;
+    std::string value;
+    proto::Dependency dep;
+    bool hasDep;
+    read_callback rcb;
+    read_timeout_callback rtcb;
+  };
+  
+  bool BufferGet(const std::string &key, read_callback rcb);
 
+  // ID of client that initiated the transaction 
+  uint64_t txn_client_id;
+  // Ongoing transaction ID.
+  uint64_t txn_client_seq_num;
+  // Current transaction.
+  proto::Transaction txn;
+  // ValidationClient internal request id tracking
+  uint64_t lastReqId;
+  // map of buffered key-value pairs
+  std::map<std::string, std::string> readValues;
+  // map from internal request id to pending validation get
+  std::unordered_map<uint64_t, PendingValidationGet *> pendingGets;
 };
 
 } // namespace sintrstore

@@ -28,31 +28,85 @@
 
 namespace sintrstore {
 
-ValidationClient::ValidationClient() {
-}
+ValidationClient::ValidationClient(uint64_t txn_client_id, uint64_t txn_client_seq_num) : 
+  txn_client_id(txn_client_id), txn_client_seq_num(txn_client_seq_num), lastReqId(0UL) {}
 
 ValidationClient::~ValidationClient() {
 }
 
-// Begin a transaction.
 void ValidationClient::Begin(begin_callback bcb, begin_timeout_callback btcb,
-    uint32_t timeout, bool retry, const std::string &txnState) {};
+    uint32_t timeout, bool retry, const std::string &txnState) {
+  txn = proto::Transaction();
+  txn.set_client_id(txn_client_id);
+  txn.set_client_seq_num(txn_client_seq_num);
+  readValues.clear();
+  bcb(txn_client_seq_num);
+};
 
-// Get the value corresponding to key.
 void ValidationClient::Get(const std::string &key, get_callback gcb,
-    get_timeout_callback gtcb, uint32_t timeout) {};
+    get_timeout_callback gtcb, uint32_t timeout) {
+  read_callback rcb = [gcb, this](int status, const std::string &key,
+      const std::string &val, const Timestamp &ts, const proto::Dependency &dep,
+      bool hasDep, bool addReadSet) {
 
-// Set the value for the given key.
+    if (addReadSet) {
+      ReadMessage *read = txn.add_read_set();
+      read->set_key(key);
+      ts.serialize(read->mutable_readtime());
+    }
+    if (hasDep) {
+      *txn.add_deps() = dep;
+    }
+    gcb(status, key, val, ts);
+  };
+
+  // read locally in buffer
+  if (BufferGet(key, rcb)) {
+    return;
+  }
+
+  // otherwise have to wait for read results to get passed over
+  uint64_t reqId = lastReqId++;
+  PendingValidationGet *pendingGet = new PendingValidationGet(reqId);
+  pendingGets[reqId] = pendingGet;
+  pendingGet->key = key;
+  pendingGet->rcb = rcb;
+  pendingGet->rtcb = gtcb;
+};
+
 void ValidationClient::Put(const std::string &key, const std::string &value,
     put_callback pcb, put_timeout_callback ptcb,
-    uint32_t timeout) {};
+    uint32_t timeout) {
+  WriteMessage *write = txn.add_write_set();
+  write->set_key(key);
+  write->set_value(value);
+  pcb(REPLY_OK, key, value);
+};
 
-// Commit all Get(s) and Put(s) since Begin().
 void ValidationClient::Commit(commit_callback ccb, commit_timeout_callback ctcb,
     uint32_t timeout) {};
 
-// Abort all Get(s) and Put(s) since Begin().
 void ValidationClient::Abort(abort_callback acb, abort_timeout_callback atcb,
     uint32_t timeout) {};
+
+bool ValidationClient::BufferGet(const std::string &key, read_callback rcb) {
+  for (const auto &write : txn.write_set()) {
+    if (write.key() == key) {
+      rcb(REPLY_OK, key, write.value(), Timestamp(), proto::Dependency(),
+          false, false);
+      return true;
+    }
+  }
+
+  for (const auto &read : txn.read_set()) {
+    if (read.key() == key) {
+      rcb(REPLY_OK, key, readValues[key], read.readtime(), proto::Dependency(),
+          false, false);
+      return true;
+    }
+  }
+
+  return false;
+}
 
 } // namespace sintrstore
