@@ -47,10 +47,12 @@ Client2Client::Client2Client(transport::Configuration *config, Transport *transp
       timeServer(timeServer), pingClients(pingClients), params(params),
       keyManager(keyManager), verifier(verifier), lastReqId(0UL) {
   
+  valClient = new ValidationClient(); 
   transport->Register(this, *config, group, client_transport_id); 
 }
 
 Client2Client::~Client2Client() {
+  delete valClient;
 }
 
 void Client2Client::ReceiveMessage(const TransportAddress &remote,
@@ -172,11 +174,9 @@ void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnM
   // create the appropriate validation transaction
   ValidationParseClient valParseClient = ValidationParseClient(0);
   ValidationTransaction *valTxn = valParseClient.Parse(beginValidateTxnMessage.txn_state());
-  ValidationClient *valClient = new ValidationClient(curr_client_id, curr_client_seq_num); 
   ::SyncClient syncClient(valClient);
   valTxn->Validate(syncClient);
 
-  delete valClient;
   delete valTxn;
 }
 

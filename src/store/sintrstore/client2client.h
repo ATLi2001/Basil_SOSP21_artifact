@@ -45,6 +45,7 @@
 #include "store/sintrstore/sintr-proto.pb.h"
 #include "store/common/pinginitiator.h"
 #include "store/sintrstore/common.h"
+#include "store/sintrstore/validation/validation_client.h"
 
 #include <map>
 #include <string>
@@ -90,6 +91,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   Verifier *verifier;
   bool failureActive;
 
+  ValidationClient *valClient;
   uint64_t lastReqId;
   proto::Transaction txn;
   std::map<std::string, std::string> readValues;

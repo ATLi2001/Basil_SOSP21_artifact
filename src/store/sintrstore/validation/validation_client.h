@@ -31,7 +31,7 @@
 #include "store/common/promise.h"
 #include "store/common/timestamp.h"
 #include "store/sintrstore/sintr-proto.pb.h"
-#include "store/sintrstore/shardclient.h"
+#include "store/sintrstore/common.h"
 
 #include <string>
 #include <vector>
@@ -43,7 +43,7 @@ namespace sintrstore {
 // validation transactions will invoke this through a SyncClient interface
 class ValidationClient : public ::Client {
  public:
-  ValidationClient(uint64_t txn_client_id, uint64_t txn_client_seq_num);
+  ValidationClient();
   virtual ~ValidationClient();
 
   // Begin a transaction.

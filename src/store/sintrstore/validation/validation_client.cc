@@ -28,8 +28,7 @@
 
 namespace sintrstore {
 
-ValidationClient::ValidationClient(uint64_t txn_client_id, uint64_t txn_client_seq_num) : 
-  txn_client_id(txn_client_id), txn_client_seq_num(txn_client_seq_num), lastReqId(0UL) {}
+ValidationClient::ValidationClient() : lastReqId(0UL) {}
 
 ValidationClient::~ValidationClient() {
 }
