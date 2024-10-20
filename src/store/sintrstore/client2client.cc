@@ -67,6 +67,10 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
     beginValidateTxnMessage.ParseFromString(data);
     HandleBeginValidateTxnMessage(beginValidateTxnMessage);
   }
+  else if(type == readReply.GetTypeName()) {
+    readReply.ParseFromString(data);
+    HandleReadReplyMessage(readReply);
+  }
   else {
     Panic("Received unexpected message type: %s", type.c_str());
   }
@@ -162,6 +166,11 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
   transport->SendMessageToAll(this, beginValidateTxnMessage);
 }
 
+void Client2Client::SendReadReplyMessage(const proto::ReadReply readReply) {
+  Debug("SendToAll readReply");
+  transport->SendMessageToAll(this, readReply);
+}
+
 void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage) {
   uint64_t curr_client_id = beginValidateTxnMessage.client_id();
   uint64_t curr_client_seq_num = beginValidateTxnMessage.client_seq_num();
@@ -178,6 +187,11 @@ void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnM
   valTxn->Validate(syncClient);
 
   delete valTxn;
+}
+
+void Client2Client::HandleReadReplyMessage(const proto::ReadReply &readReply) {
+  // tell valClient about this readReply
+  // valClient->HandleReadReply(readReply);
 }
 
 } // namespace sintrstore

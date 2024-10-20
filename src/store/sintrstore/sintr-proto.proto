@@ -4,18 +4,6 @@ import "store/common/common-proto.proto";
 
 package sintrstore.proto;
 
-// Sintr specific messages
-
-message TxnState {
-  optional string txn_name = 1;
-  optional bytes txn_data = 2;
-}
-
-message BeginValidateTxnMessage {
-  required uint64 client_id = 1;
-  required uint64 client_seq_num = 2;
-  required TxnState txn_state = 3;
-}
 
 // From indicus
 
@@ -380,3 +368,24 @@ message SendView {
   required bytes txn_digest = 2;
   required AttachedView attached_view = 3;
 }
+
+// Sintr specific messages
+
+message TxnState {
+  optional string txn_name = 1;
+  optional bytes txn_data = 2;
+}
+
+message BeginValidateTxnMessage {
+  required uint64 client_id = 1;
+  required uint64 client_seq_num = 2;
+  required TxnState txn_state = 3;
+}
+
+message ForwardReadResult {
+  required uint64 client_id = 1;
+  required uint64 client_seq_num = 2;
+  required ReadReply read_reply = 3;
+  optional Signature signature = 4;
+}
+

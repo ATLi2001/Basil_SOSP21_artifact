@@ -49,7 +49,6 @@
 #include "store/sintrstore/phase1validator.h"
 #include "store/common/pinginitiator.h"
 #include "store/sintrstore/common.h"
-#include "store/sintrstore/client2client.h"
 
 #include <map>
 #include <string>
@@ -97,7 +96,7 @@ class ShardClient : public TransportReceiver, public PingInitiator, public PingT
       bool pingReplicas,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
       TrueTime &timeServer, uint64_t phase1DecisionTimeout,
-      uint64_t consecutiveMax = 1UL, Client2Client *c2client = NULL);
+      uint64_t consecutiveMax = 1UL);
   virtual ~ShardClient();
 
   virtual void ReceiveMessage(const TransportAddress &remote,
@@ -425,9 +424,6 @@ virtual void Phase2Equivocate_Simulate(uint64_t id, const proto::Transaction &tx
   const uint64_t phase1DecisionTimeout;
   std::vector<int> closestReplicas;
   bool failureActive;
-
-  // client for other clients
-  Client2Client *c2client;
 
   uint64_t lastReqId;
   proto::Transaction txn;

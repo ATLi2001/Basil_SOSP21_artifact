@@ -64,6 +64,9 @@ class ValidationClient : public ::Client {
   // Abort all Get(s) and Put(s) since Begin().
   virtual void Abort(abort_callback acb, abort_timeout_callback atcb, uint32_t timeout) override;
 
+  // check read reply and fill one of the pending validation gets
+  void HandleReadReply(const proto::ReadReply &readReply);
+
  private:
   struct PendingValidationGet {
     PendingValidationGet(uint64_t reqId) : reqId(reqId) {}
@@ -86,6 +89,7 @@ class ValidationClient : public ::Client {
   // Current transaction.
   proto::Transaction txn;
   // ValidationClient internal request id tracking
+  // TODO: How to sync this up with shardclient request id?
   uint64_t lastReqId;
   // map of buffered key-value pairs
   std::map<std::string, std::string> readValues;
