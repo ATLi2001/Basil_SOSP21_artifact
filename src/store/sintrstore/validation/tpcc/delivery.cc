@@ -45,12 +45,14 @@ transaction_status_t ValidationDelivery::Validate(::SyncClient &client) {
   Debug("District: %u", d_id);
   // std::cerr << "warehouse: " << w_id << std::endl;
   std::cerr << "w_id: " << w_id << " d_id: " << d_id << " o_carrier_id: " << o_carrier_id << " ol_delivery_d: " << ol_delivery_d << std::endl;
-  return COMMITTED;
 
   client.Begin(timeout);
 
   std::string eno_key = EarliestNewOrderRowKey(w_id, d_id);
-  client.Get(eno_key, str, timeout);
+  // client.Get(eno_key, str, timeout);
+  client.Get("0", str, timeout);
+  std::cerr << "ValidationDelivery Validate get on key 0, value " << str << std::endl;
+  return COMMITTED;
   EarliestNewOrderRow eno_row;
   if (str.empty()) {
     // TODO: technically we're supposed to check each district in this warehouse

@@ -387,7 +387,8 @@ message ForwardReadResult {
   required uint64 client_seq_num = 2;
   required bytes key = 3;
   required bytes value = 4;
-  optional CommittedProof proof = 5;
-  optional Signature signature = 6;
+  required TimestampMessage timestamp = 5;
+  optional CommittedProof proof = 6;
+  optional Signature signature = 7;
 }
 

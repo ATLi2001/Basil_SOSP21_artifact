@@ -31,7 +31,6 @@
 #include "store/sintrstore/client2client.h"
 #include "store/sintrstore/validation/validation_client.h"
 #include "store/sintrstore/validation/validation_transaction.h"
-#include "store/sintrstore/validation/validation_parse_client.h"
 #include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
 
 #include <google/protobuf/util/message_differencer.h>
@@ -47,11 +46,14 @@ Client2Client::Client2Client(transport::Configuration *config, Transport *transp
       timeServer(timeServer), pingClients(pingClients), params(params),
       keyManager(keyManager), verifier(verifier), lastReqId(0UL) {
   
-  valClient = new ValidationClient(); 
+  valThread = NULL;
+  valClient = new ValidationClient(params); 
+  valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
   transport->Register(this, *config, group, client_transport_id); 
 }
 
 Client2Client::~Client2Client() {
+  valThread->join();
   delete valClient;
 }
 
@@ -74,66 +76,6 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
   else {
     Panic("Received unexpected message type: %s", type.c_str());
   }
-
-  // if (type == readReply.GetTypeName()) {
-  //   if(params.multiThreading){
-  //     proto::ReadReply *curr_read = GetUnusedReadReply();
-  //     curr_read->ParseFromString(data);
-  //     HandleReadReplyMulti(curr_read);
-  //   }
-  //   else{
-  //     readReply.ParseFromString(data);
-  //     HandleReadReply(readReply);
-  //   }
-  // } else if (type == phase1Reply.GetTypeName()) {
-  //   phase1Reply.ParseFromString(data);
-  //   HandlePhase1Reply(phase1Reply);
-  //   // if (params.injectFailure.enabled && params.injectFailure.type == InjectFailureType::CLIENT_EQUIVOCATE) {
-  //   //   HandleP1REquivocate(phase1Reply);
-  //   // } else {
-  //   //   HandlePhase1Reply(phase1Reply);
-  //   // }
-  // } else if (type == phase2Reply.GetTypeName()) {
-  //   phase2Reply.ParseFromString(data);
-  //   //Use old handle Read only when proofs/signatures disabled
-  //   if(!(params.validateProofs && params.signedMessages)){
-  //     HandlePhase2Reply(phase2Reply);
-  //   }
-  //   else{ //If validateProofs and signMessages are true, then use multi view
-  //     HandlePhase2Reply_MultiView(phase2Reply);
-  //   }
-  //   //HandlePhase2Reply_MultiView(phase2Reply);
-  //   //HandlePhase2Reply(phase2Reply);
-  // } else if (type == ping.GetTypeName()) {
-  //   ping.ParseFromString(data);
-  //   HandlePingResponse(ping);
-
-  //   //FALLBACK readMessages
-  // } else if(type == relayP1.GetTypeName()){ //receive full TX info for a dependency
-  //   relayP1.ParseFromString(data);
-  //   HandlePhase1Relay(relayP1); //Call into client to see if still waiting.
-  // }
-  // else if(type == phase1FBReply.GetTypeName()){
-  //   //wait for quorum and relay to client
-  //   phase1FBReply.ParseFromString(data);
-  //   HandlePhase1FBReply(phase1FBReply); // update pendingFB state -- if complete, upcall to client
-  // }
-  // else if(type == phase2FBReply.GetTypeName()){
-  //   //wait for quorum and relay to client
-  //   phase2FBReply.ParseFromString(data);
-  //   HandlePhase2FBReply(phase2FBReply); //update pendingFB state -- if complete, upcall to client
-  // }
-  // else if(type == forwardWB.GetTypeName()){
-  //   forwardWB.ParseFromString(data);
-  //   HandleForwardWB(forwardWB);
-  // }
-  // else if(type == sendView.GetTypeName()){
-  //   sendView.ParseFromString(data);
-  //   HandleSendViewMessage(sendView);
-  // }
-  // else {
-  //   Panic("Received unexpected message type: %s", type.c_str());
-  // }
 }
 
 bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
@@ -168,13 +110,19 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
   transport->SendMessageToAll(this, beginValidateTxnMessage);
 }
 
-void Client2Client::ForwardReadResult(const std::string &key, const std::string &value, const proto::CommittedProof *proof) {
+void Client2Client::ForwardReadResult(const std::string &key, const std::string &value, 
+    const Timestamp &ts, const proto::CommittedProof *proof) {
   Debug("SendToAll ForwardReadResult");
   proto::ForwardReadResult fwdReadResult = proto::ForwardReadResult();
   fwdReadResult.set_client_id(client_id);
   fwdReadResult.set_client_seq_num(client_seq_num);
-  fwdReadResult.set_key(key);
-  fwdReadResult.set_value(value);
+  // fwdReadResult.set_key(key);
+  // fwdReadResult.set_value(value);
+  // test data
+  fwdReadResult.set_key("0");
+  fwdReadResult.set_value("00");
+  fwdReadResult.mutable_timestamp()->set_timestamp(ts.getTimestamp());
+  fwdReadResult.mutable_timestamp()->set_id(ts.getID());
   if (params.validateProofs) {
     if (proof == NULL) {
       Debug("Missing proof for client %lu, seq num %lu", client_id, client_seq_num);
@@ -189,19 +137,27 @@ void Client2Client::ForwardReadResult(const std::string &key, const std::string 
 void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage) {
   uint64_t curr_client_id = beginValidateTxnMessage.client_id();
   uint64_t curr_client_seq_num = beginValidateTxnMessage.client_seq_num();
+  proto::TxnState txnState = beginValidateTxnMessage.txn_state();
   Debug(
     "HandleBeginValidateTxnMessage: from client %lu, seq num %lu", 
     curr_client_id, 
     curr_client_seq_num
   );
+  valClient->SetTxnClientId(curr_client_id);
+  valClient->SetTxnClientSeqNum(curr_client_seq_num);
 
   // create the appropriate validation transaction
-  ValidationParseClient valParseClient = ValidationParseClient(0);
-  ValidationTransaction *valTxn = valParseClient.Parse(beginValidateTxnMessage.txn_state());
-  ::SyncClient syncClient(valClient);
-  valTxn->Validate(syncClient);
+  if (valThread != NULL) {
+    Debug("valThread->join()");
+    valThread->join();
+  }
+  valThread = new std::thread([this, txnState](){
+    ValidationTransaction *valTxn = valParseClient->Parse(txnState);
+    ::SyncClient syncClient(valClient);
+    valTxn->Validate(syncClient);
 
-  delete valTxn;
+    delete valTxn;
+  });
 }
 
 void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdReadResult) {
@@ -217,7 +173,7 @@ void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdR
     curr_value.c_str()
   );
   // tell valClient about this readReply
-  // valClient->HandleReadReply(readReply);
+  valClient->ValidateForwardReadResult(fwdReadResult);
 }
 
 } // namespace sintrstore

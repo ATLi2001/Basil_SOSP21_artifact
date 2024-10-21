@@ -46,6 +46,7 @@
 #include "store/common/pinginitiator.h"
 #include "store/sintrstore/common.h"
 #include "store/sintrstore/validation/validation_client.h"
+#include "store/sintrstore/validation/validation_parse_client.h"
 
 #include <map>
 #include <string>
@@ -72,7 +73,8 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   void SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState);
 
   // forward server read reply to other peers
-  void ForwardReadResult(const std::string &key, const std::string &value, const proto::CommittedProof *proof);
+  void ForwardReadResult(const std::string &key, const std::string &value, 
+    const Timestamp &ts, const proto::CommittedProof *proof);
 
   void SetFailureFlag(bool f) {
     failureActive = f;
@@ -95,7 +97,10 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   Verifier *verifier;
   bool failureActive;
 
+  // thread for validation
+  std::thread *valThread;
   ValidationClient *valClient;
+  ValidationParseClient *valParseClient;
   // current transaction sequence number
   uint64_t client_seq_num;
   uint64_t lastReqId;
