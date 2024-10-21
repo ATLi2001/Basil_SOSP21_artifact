@@ -46,7 +46,7 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
     get_timeout_callback gtcb, uint32_t timeout) {
   read_callback rcb = [gcb, this](int status, const std::string &key,
       const std::string &val, const Timestamp &ts, const proto::Dependency &dep,
-      bool hasDep, bool addReadSet) {
+      bool hasDep, bool addReadSet, const proto::CommittedProof *proof) {
 
     if (addReadSet) {
       ReadMessage *read = txn.add_read_set();
@@ -92,7 +92,7 @@ bool ValidationClient::BufferGet(const std::string &key, read_callback rcb) {
   for (const auto &write : txn.write_set()) {
     if (write.key() == key) {
       rcb(REPLY_OK, key, write.value(), Timestamp(), proto::Dependency(),
-          false, false);
+          false, false, NULL);
       return true;
     }
   }
@@ -100,7 +100,7 @@ bool ValidationClient::BufferGet(const std::string &key, read_callback rcb) {
   for (const auto &read : txn.read_set()) {
     if (read.key() == key) {
       rcb(REPLY_OK, key, readValues[key], read.readtime(), proto::Dependency(),
-          false, false);
+          false, false, NULL);
       return true;
     }
   }

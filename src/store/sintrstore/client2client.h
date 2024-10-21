@@ -72,7 +72,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   void SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState);
 
   // forward server read reply to other peers
-  void SendReadReplyMessage(const proto::ReadReply readReply);
+  void ForwardReadResult(const std::string &key, const std::string &value, const proto::CommittedProof *proof);
 
   void SetFailureFlag(bool f) {
     failureActive = f;
@@ -81,7 +81,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
  private:
 
   void HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage);
-  void HandleReadReplyMessage(const proto::ReadReply &readReply);
+  void HandleForwardReadResult(const proto::ForwardReadResult &fwdReadResult);
 
   const uint64_t client_id; // Unique ID for this client.
   const uint64_t client_transport_id; // unique transport id for this client
@@ -96,12 +96,14 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   bool failureActive;
 
   ValidationClient *valClient;
+  // current transaction sequence number
+  uint64_t client_seq_num;
   uint64_t lastReqId;
   proto::Transaction txn;
   std::map<std::string, std::string> readValues;
 
   proto::BeginValidateTxnMessage beginValidateTxnMessage;
-  proto::ReadReply readReply;
+  proto::ForwardReadResult fwdReadResult;
   PingMessage ping;
 };
 

@@ -385,7 +385,9 @@ message BeginValidateTxnMessage {
 message ForwardReadResult {
   required uint64 client_id = 1;
   required uint64 client_seq_num = 2;
-  required ReadReply read_reply = 3;
-  optional Signature signature = 4;
+  required bytes key = 3;
+  required bytes value = 4;
+  optional CommittedProof proof = 5;
+  optional Signature signature = 6;
 }
 

@@ -67,9 +67,9 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
     beginValidateTxnMessage.ParseFromString(data);
     HandleBeginValidateTxnMessage(beginValidateTxnMessage);
   }
-  else if(type == readReply.GetTypeName()) {
-    readReply.ParseFromString(data);
-    HandleReadReplyMessage(readReply);
+  else if(type == fwdReadResult.GetTypeName()) {
+    fwdReadResult.ParseFromString(data);
+    HandleForwardReadResult(fwdReadResult);
   }
   else {
     Panic("Received unexpected message type: %s", type.c_str());
@@ -145,6 +145,8 @@ bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
 }
 
 void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState) {
+  client_seq_num = id;
+
   proto::BeginValidateTxnMessage beginValidateTxnMessage = proto::BeginValidateTxnMessage();
   beginValidateTxnMessage.set_client_id(client_id);
   beginValidateTxnMessage.set_client_seq_num(id);
@@ -166,9 +168,22 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
   transport->SendMessageToAll(this, beginValidateTxnMessage);
 }
 
-void Client2Client::SendReadReplyMessage(const proto::ReadReply readReply) {
-  Debug("SendToAll readReply");
-  transport->SendMessageToAll(this, readReply);
+void Client2Client::ForwardReadResult(const std::string &key, const std::string &value, const proto::CommittedProof *proof) {
+  Debug("SendToAll ForwardReadResult");
+  proto::ForwardReadResult fwdReadResult = proto::ForwardReadResult();
+  fwdReadResult.set_client_id(client_id);
+  fwdReadResult.set_client_seq_num(client_seq_num);
+  fwdReadResult.set_key(key);
+  fwdReadResult.set_value(value);
+  if (params.validateProofs) {
+    if (proof == NULL) {
+      Debug("Missing proof for client %lu, seq num %lu", client_id, client_seq_num);
+      return;
+    }
+    *fwdReadResult.mutable_proof() = *proof;
+  }
+
+  transport->SendMessageToAll(this, fwdReadResult);
 }
 
 void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage) {
@@ -189,7 +204,18 @@ void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnM
   delete valTxn;
 }
 
-void Client2Client::HandleReadReplyMessage(const proto::ReadReply &readReply) {
+void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdReadResult) {
+  uint64_t curr_client_id = fwdReadResult.client_id();
+  uint64_t curr_client_seq_num = fwdReadResult.client_seq_num();
+  std::string curr_key = fwdReadResult.key();
+  std::string curr_value = fwdReadResult.value();
+  Debug(
+    "HandleForwardReadResult: from client %lu, seq num %lu, key %s, value %s", 
+    curr_client_id, 
+    curr_client_seq_num,
+    curr_key.c_str(),
+    curr_value.c_str()
+  );
   // tell valClient about this readReply
   // valClient->HandleReadReply(readReply);
 }

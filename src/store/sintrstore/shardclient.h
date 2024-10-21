@@ -58,6 +58,12 @@ namespace sintrstore {
 static int callP2FB = 0;
 static int successful_invoke = 0;
 
+
+typedef std::function<void(int, const std::string &,
+    const std::string &, const Timestamp &, const proto::Dependency &,
+    bool, bool, const proto::CommittedProof *)> read_callback;
+typedef std::function<void(int, const std::string &)> read_timeout_callback;
+
 typedef std::function<void(proto::CommitDecision, bool, bool,
     const proto::CommittedProof &,
     const std::map<proto::ConcurrencyControl::Result, proto::Signatures> &, bool)> phase1_callback;

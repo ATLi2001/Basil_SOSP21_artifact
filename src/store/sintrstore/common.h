@@ -48,11 +48,6 @@
 
 namespace sintrstore {
 
-typedef std::function<void(int, const std::string &,
-    const std::string &, const Timestamp &, const proto::Dependency &,
-    bool, bool)> read_callback;
-typedef std::function<void(int, const std::string &)> read_timeout_callback;
-
 
 static bool LocalDispatch = true; //TODO: Turn into config flag if a viable option.
 

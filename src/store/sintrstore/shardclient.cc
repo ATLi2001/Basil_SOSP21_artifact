@@ -605,7 +605,7 @@ bool ShardClient::BufferGet(const std::string &key, read_callback rcb) {
       Debug("[group %i] Key %s was written with val %s.", group,
           BytesToHex(key, 16).c_str(), BytesToHex(write.value(), 16).c_str());
       rcb(REPLY_OK, key, write.value(), Timestamp(), proto::Dependency(),
-          false, false);
+          false, false, NULL);
       return true;
     }
   }
@@ -616,7 +616,7 @@ bool ShardClient::BufferGet(const std::string &key, read_callback rcb) {
           BytesToHex(key, 16).c_str(), read.readtime().timestamp(),
           read.readtime().id());
       rcb(REPLY_OK, key, readValues[key], read.readtime(), proto::Dependency(),
-          false, false);
+          false, false, NULL);
       return true;
     }
   }
@@ -837,7 +837,7 @@ void ShardClient::HandleReadReplyCB2(proto::ReadReply* reply, proto::Write *writ
     req->maxTs.serialize(read->mutable_readtime());
     readValues[req->key] = req->maxValue;
     req->gcb(REPLY_OK, req->key, req->maxValue, req->maxTs, req->dep,
-        req->hasDep, true);
+        req->hasDep, true, &reply->proof());
     delete req; //XXX VERY IMPORTANT: dont delete while something is still dispatched for this reqId
     //could cause segfault. Need to keep a counter of things that are dispatched and only delete
     //once its gone. (dont need counter: just check in each callback if req still in map.!)
@@ -980,7 +980,7 @@ void ShardClient::HandleReadReply(const proto::ReadReply &reply) {
     req->maxTs.serialize(read->mutable_readtime());
     readValues[req->key] = req->maxValue;
     req->gcb(REPLY_OK, req->key, req->maxValue, req->maxTs, req->dep,
-        req->hasDep, true);
+        req->hasDep, true, &reply.proof());
     delete req;
   }
 }

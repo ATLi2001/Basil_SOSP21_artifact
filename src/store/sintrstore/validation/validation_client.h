@@ -31,7 +31,7 @@
 #include "store/common/promise.h"
 #include "store/common/timestamp.h"
 #include "store/sintrstore/sintr-proto.pb.h"
-#include "store/sintrstore/common.h"
+#include "store/sintrstore/shardclient.h" // for read_callback
 
 #include <string>
 #include <vector>
