@@ -28,7 +28,8 @@
 
 namespace sintrstore {
 
-ValidationClient::ValidationClient(Parameters params) : params(params) {}
+ValidationClient::ValidationClient(uint64_t client_id, Parameters params) : 
+  client_id(client_id), params(params) {}
 
 ValidationClient::~ValidationClient() {
 }
@@ -40,7 +41,7 @@ void ValidationClient::Begin(begin_callback bcb, begin_timeout_callback btcb,
   txn.set_client_seq_num(txn_client_seq_num);
   readValues.clear();
   bcb(txn_client_seq_num);
-};
+}
 
 void ValidationClient::Get(const std::string &key, get_callback gcb,
     get_timeout_callback gtcb, uint32_t timeout) {
@@ -75,7 +76,7 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
   pendingGet->key = key;
   pendingGet->vrcb = vrcb;
   pendingGet->vrtcb = gtcb;
-};
+}
 
 void ValidationClient::Put(const std::string &key, const std::string &value,
     put_callback pcb, put_timeout_callback ptcb,
@@ -84,13 +85,15 @@ void ValidationClient::Put(const std::string &key, const std::string &value,
   write->set_key(key);
   write->set_value(value);
   pcb(REPLY_OK, key, value);
-};
+}
 
 void ValidationClient::Commit(commit_callback ccb, commit_timeout_callback ctcb,
-    uint32_t timeout) {};
+    uint32_t timeout) {
+  ccb(COMMITTED);
+}
 
 void ValidationClient::Abort(abort_callback acb, abort_timeout_callback atcb,
-    uint32_t timeout) {};
+    uint32_t timeout) {}
 
 void ValidationClient::SetTxnClientId(uint64_t txn_client_id) {
   this->txn_client_id = txn_client_id;
@@ -131,6 +134,10 @@ void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult 
   reqs.erase(reqs_itr);
   // free memory
   delete req;
+}
+
+proto::Transaction *ValidationClient::GetCompletedValTxn(uint64_t txn_client_id, uint64_t txn_client_seq_num) {
+  return &txn;
 }
 
 bool ValidationClient::BufferGet(const std::string &key, validation_read_callback vrcb) {

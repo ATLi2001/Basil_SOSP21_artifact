@@ -47,7 +47,7 @@ Client2Client::Client2Client(transport::Configuration *config, Transport *transp
       keyManager(keyManager), verifier(verifier), lastReqId(0UL) {
   
   valThread = NULL;
-  valClient = new ValidationClient(params); 
+  valClient = new ValidationClient(client_id, params); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
   transport->Register(this, *config, group, client_transport_id); 
 }
@@ -65,13 +65,17 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
     ping.ParseFromString(data);
     HandlePingResponse(ping);
   }
-  else if (type == beginValidateTxnMessage.GetTypeName()) {
-    beginValidateTxnMessage.ParseFromString(data);
-    HandleBeginValidateTxnMessage(beginValidateTxnMessage);
+  else if (type == beginValTxnMsg.GetTypeName()) {
+    beginValTxnMsg.ParseFromString(data);
+    HandleBeginValidateTxnMessage(remote, beginValTxnMsg);
   }
   else if(type == fwdReadResult.GetTypeName()) {
     fwdReadResult.ParseFromString(data);
     HandleForwardReadResult(fwdReadResult);
+  }
+  else if(type == finishValTxnMsg.GetTypeName()) {
+    finishValTxnMsg.ParseFromString(data);
+    HandleFinishValidateTxnMessage(finishValTxnMsg);
   }
   else {
     Panic("Received unexpected message type: %s", type.c_str());
@@ -89,9 +93,9 @@ bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
 void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState) {
   client_seq_num = id;
 
-  proto::BeginValidateTxnMessage beginValidateTxnMessage = proto::BeginValidateTxnMessage();
-  beginValidateTxnMessage.set_client_id(client_id);
-  beginValidateTxnMessage.set_client_seq_num(id);
+  proto::BeginValidateTxnMessage beginValTxnMsg = proto::BeginValidateTxnMessage();
+  beginValTxnMsg.set_client_id(client_id);
+  beginValTxnMsg.set_client_seq_num(id);
   proto::TxnState *protoTxnState = new proto::TxnState();
   // test data
   ::tpcc::validation::proto::Delivery delivery = ::tpcc::validation::proto::Delivery();
@@ -104,10 +108,10 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
   protoTxnState->set_txn_name("tpcc_delivery");
   protoTxnState->set_txn_data(deliveryStr);
   // protoTxnState->ParseFromString(txnState);
-  beginValidateTxnMessage.set_allocated_txn_state(protoTxnState);
+  beginValTxnMsg.set_allocated_txn_state(protoTxnState);
 
-  Debug("SendToAll beginValidateTxnMessage");
-  transport->SendMessageToAll(this, beginValidateTxnMessage);
+  Debug("SendToAll beginValTxnMsg");
+  transport->SendMessageToAll(this, beginValTxnMsg);
 }
 
 void Client2Client::ForwardReadResult(const std::string &key, const std::string &value, 
@@ -134,10 +138,11 @@ void Client2Client::ForwardReadResult(const std::string &key, const std::string 
   transport->SendMessageToAll(this, fwdReadResult);
 }
 
-void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage) {
-  uint64_t curr_client_id = beginValidateTxnMessage.client_id();
-  uint64_t curr_client_seq_num = beginValidateTxnMessage.client_seq_num();
-  proto::TxnState txnState = beginValidateTxnMessage.txn_state();
+void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote, 
+    const proto::BeginValidateTxnMessage &beginValTxnMsg) {
+  uint64_t curr_client_id = beginValTxnMsg.client_id();
+  uint64_t curr_client_seq_num = beginValTxnMsg.client_seq_num();
+  proto::TxnState txnState = beginValTxnMsg.txn_state();
   Debug(
     "HandleBeginValidateTxnMessage: from client %lu, seq num %lu", 
     curr_client_id, 
@@ -151,11 +156,24 @@ void Client2Client::HandleBeginValidateTxnMessage(const proto::BeginValidateTxnM
     Debug("valThread->join()");
     valThread->join();
   }
-  valThread = new std::thread([this, txnState](){
+  TransportAddress *remoteCopy = remote.clone();
+
+  valThread = new std::thread([this, txnState, curr_client_id, curr_client_seq_num, remoteCopy](){
     ValidationTransaction *valTxn = valParseClient->Parse(txnState);
     ::SyncClient syncClient(valClient);
-    valTxn->Validate(syncClient);
+    transaction_status_t result = valTxn->Validate(syncClient);
 
+    if (result == COMMITTED) {
+      proto::Transaction *txn = valClient->GetCompletedValTxn(curr_client_id, curr_client_seq_num);
+      proto::FinishValidateTxnMessage finishValTxnMsg = proto::FinishValidateTxnMessage();
+      finishValTxnMsg.set_client_id(client_id);
+      *finishValTxnMsg.mutable_txn() = *txn;
+      // signature later
+
+      transport->SendMessage(this, *remoteCopy, finishValTxnMsg);
+    }
+
+    delete remoteCopy;
     delete valTxn;
   });
 }
@@ -174,6 +192,11 @@ void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdR
   );
   // tell valClient about this readReply
   valClient->ValidateForwardReadResult(fwdReadResult);
+}
+
+void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg) {
+  uint64_t curr_client_id = finishValTxnMsg.client_id();
+  Debug("HandleFinishValidateTxnMessage: from client %lu", curr_client_id);
 }
 
 } // namespace sintrstore

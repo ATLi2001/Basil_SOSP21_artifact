@@ -392,3 +392,8 @@ message ForwardReadResult {
   optional Signature signature = 7;
 }
 
+message FinishValidateTxnMessage {
+  required uint64 client_id = 1;
+  required Transaction txn = 2;
+  optional Signature signature = 3;
+}

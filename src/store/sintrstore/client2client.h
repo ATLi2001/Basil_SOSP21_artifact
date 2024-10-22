@@ -82,8 +82,9 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
  private:
 
-  void HandleBeginValidateTxnMessage(const proto::BeginValidateTxnMessage &beginValidateTxnMessage);
+  void HandleBeginValidateTxnMessage(const TransportAddress &remote, const proto::BeginValidateTxnMessage &beginValTxnMsg);
   void HandleForwardReadResult(const proto::ForwardReadResult &fwdReadResult);
+  void HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg);
 
   const uint64_t client_id; // Unique ID for this client.
   const uint64_t client_transport_id; // unique transport id for this client
@@ -107,8 +108,9 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   proto::Transaction txn;
   std::map<std::string, std::string> readValues;
 
-  proto::BeginValidateTxnMessage beginValidateTxnMessage;
+  proto::BeginValidateTxnMessage beginValTxnMsg;
   proto::ForwardReadResult fwdReadResult;
+  proto::FinishValidateTxnMessage finishValTxnMsg;
   PingMessage ping;
 };
 

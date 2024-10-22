@@ -47,7 +47,7 @@ typedef std::function<void(int, const std::string &)> validation_read_timeout_ca
 // validation transactions will invoke this through a SyncClient interface
 class ValidationClient : public ::Client {
  public:
-  ValidationClient(Parameters params);
+  ValidationClient(uint64_t client_id, Parameters params);
   virtual ~ValidationClient();
 
   // Begin a transaction.
@@ -76,6 +76,9 @@ class ValidationClient : public ::Client {
   // check forwarded read result and fill one of the pending validation gets
   void ValidateForwardReadResult(const proto::ForwardReadResult &fwdReadResult);
 
+  // return transaction for completed validation transaction
+  proto::Transaction *GetCompletedValTxn(uint64_t txn_client_id, uint64_t txn_client_seq_num);
+
  private:
   struct PendingValidationGet {
     PendingValidationGet(uint64_t txn_client_id, uint64_t txn_client_seq_num) : 
@@ -92,6 +95,8 @@ class ValidationClient : public ::Client {
   
   bool BufferGet(const std::string &key, validation_read_callback vrcb);
 
+  // My own client ID
+  uint64_t client_id;
   // parameters
   Parameters params;
   // ID of client that initiated the transaction 
