@@ -50,7 +50,10 @@ transaction_status_t SyncPayment::Execute(SyncClient &client) {
   Debug("Warehouse: %u", w_id);
   //std::cerr << "warehouse: " << w_id << std::endl;
 
-  client.Begin(timeout);
+  std::string txnState;
+  Payment::SerializeTxnState(txnState);
+
+  client.Begin(timeout, txnState);
 
   std::string w_key = WarehouseRowKey(w_id);
   client.Get(w_key, timeout);

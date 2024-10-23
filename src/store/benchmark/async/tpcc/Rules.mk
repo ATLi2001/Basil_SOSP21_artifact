@@ -10,7 +10,7 @@ OBJ-tpcc-client := $(o)tpcc_client.o
 
 LIB-tpcc := $(OBJ-tpcc-client) $(OBJ-tpcc-transaction) $(o)new_order.o \
 	$(o)tpcc-proto.o $(o)tpcc_utils.o $(o)payment.o $(o)order_status.o \
-	$(o)stock_level.o $(o)delivery.o
+	$(o)stock_level.o $(o)delivery.o $(o)tpcc-validation-proto.o
 
 $(d)tpcc_generator: $(LIB-io-utils) $(o)tpcc-proto.o $(o)tpcc_generator.o $(o)tpcc_utils.o
 

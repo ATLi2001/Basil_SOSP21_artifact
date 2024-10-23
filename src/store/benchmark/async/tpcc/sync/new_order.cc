@@ -46,7 +46,10 @@ transaction_status_t SyncNewOrder::Execute(SyncClient &client) {
   Debug("Warehouse: %u", w_id);
   //std::cerr << "warehouse: " << w_id << std::endl;
 
-  client.Begin(timeout);
+  std::string txnState;
+  NewOrder::SerializeTxnState(txnState);
+
+  client.Begin(timeout, txnState);
 
   client.Get(WarehouseRowKey(w_id), timeout);
   Debug("District: %u", d_id);

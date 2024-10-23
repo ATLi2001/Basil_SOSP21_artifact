@@ -39,6 +39,8 @@ class StockLevel : public TPCCTransaction {
   StockLevel() {};
   virtual ~StockLevel();
 
+  virtual void SerializeTxnState(std::string &txnState) override;
+
  protected:
   uint32_t w_id;
   uint32_t d_id;

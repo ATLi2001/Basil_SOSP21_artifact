@@ -48,7 +48,10 @@ transaction_status_t SyncOrderStatus::Execute(SyncClient &client) {
   Debug("District: %u", c_d_id);
   //std::cerr << "warehouse: " << w_id << std::endl;
 
-  client.Begin(timeout);
+  std::string txnState;
+  OrderStatus::SerializeTxnState(txnState);
+
+  client.Begin(timeout, txnState);
 
   if (c_by_last_name) { // access customer by last name
     Debug("Customer: %s", c_last.c_str());

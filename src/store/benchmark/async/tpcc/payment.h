@@ -44,6 +44,8 @@ class Payment : public TPCCTransaction {
   Payment() {};
   virtual ~Payment();
 
+  virtual void SerializeTxnState(std::string &txnState) override;
+
  protected:
   uint32_t w_id;
   uint32_t d_id;

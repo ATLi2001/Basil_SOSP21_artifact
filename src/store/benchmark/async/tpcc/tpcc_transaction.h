@@ -27,12 +27,17 @@
 #ifndef TPCC_TRANSACTION_H
 #define TPCC_TRANSACTION_H
 
+#include <string>
+
 namespace tpcc {
 
 class TPCCTransaction {
  public:
   TPCCTransaction();
   virtual ~TPCCTransaction();
+
+  // serialize the current transaction state into the variable txnState
+  virtual void SerializeTxnState(std::string &txnState) = 0;
 };
 
 }
