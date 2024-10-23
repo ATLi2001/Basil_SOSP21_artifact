@@ -33,11 +33,35 @@ namespace tpcc {
 ValidationNewOrder::ValidationNewOrder(uint32_t timeout, uint32_t w_id, uint32_t d_id, 
     uint32_t c_id, uint8_t ol_cnt, uint8_t rbk, std::vector<uint32_t> o_ol_i_ids,
     std::vector<uint32_t> o_ol_supply_w_ids, std::vector<uint8_t> o_ol_quantities, 
-    uint32_t o_entry_d, bool all_local) :
-    ValidationTPCCTransaction(timeout),
-    w_id(w_id), d_id(d_id), c_id(c_id), ol_cnt(ol_cnt), rbk(rbk), o_ol_i_ids(o_ol_i_ids),
-    o_ol_supply_w_ids(o_ol_supply_w_ids), o_ol_quantities(o_ol_quantities), 
-    o_entry_d(o_entry_d), all_local(all_local) {
+    uint32_t o_entry_d, bool all_local) : ValidationTPCCTransaction(timeout) {
+  this->w_id = w_id;
+  this->d_id = d_id;
+  this->c_id = c_id;
+  this->ol_cnt = ol_cnt;
+  this->rbk = rbk;
+  this->o_ol_i_ids = o_ol_i_ids;
+  this->o_ol_supply_w_ids = o_ol_supply_w_ids;
+  this->o_ol_quantities = o_ol_quantities; 
+  this->o_entry_d = o_entry_d;
+  this->all_local = all_local;
+}
+
+ValidationNewOrder::ValidationNewOrder(uint32_t timeout, validation::proto::NewOrder valNewOrderMsg) :
+    ValidationTPCCTransaction(timeout) {
+  w_id = valNewOrderMsg.w_id();
+  d_id = valNewOrderMsg.d_id();
+  c_id = valNewOrderMsg.c_id();
+  ol_cnt = valNewOrderMsg.ol_cnt();
+  rbk = valNewOrderMsg.rbk();
+  o_ol_i_ids = std::vector(valNewOrderMsg.o_ol_i_ids().begin(), valNewOrderMsg.o_ol_i_ids().end());
+  o_ol_supply_w_ids = std::vector(valNewOrderMsg.o_ol_supply_w_ids().begin(), valNewOrderMsg.o_ol_supply_w_ids().end());
+  // protobuf only has uint32 type, but here we only need uint8_t in the vector
+  o_ol_quantities = std::vector<uint8_t>();
+  for (int i = 0; i < valNewOrderMsg.o_ol_quantities().size(); i++) {
+    o_ol_quantities.push_back(valNewOrderMsg.o_ol_quantities(i) & 0xFF);
+  }
+  o_entry_d = valNewOrderMsg.o_entry_d();
+  all_local = valNewOrderMsg.all_local();
 }
 
 ValidationNewOrder::~ValidationNewOrder() {

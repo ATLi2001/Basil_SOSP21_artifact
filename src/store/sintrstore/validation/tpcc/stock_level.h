@@ -26,23 +26,20 @@
 #ifndef VALDIATION_STOCK_LEVEL_H
 #define VALDIATION_STOCK_LEVEL_H
 
-#include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
 #include "store/benchmark/async/tpcc/stock_level.h"
+#include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
+#include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
 #include "store/common/frontend/sync_client.h"
 
 namespace tpcc {
 
-class ValidationStockLevel : public ValidationTPCCTransaction {
+class ValidationStockLevel : public ValidationTPCCTransaction, public StockLevel {
  public:
   // constructor with no randomness (all fields directly initialized)
   ValidationStockLevel(uint32_t timeout, uint32_t w_id, uint32_t d_id, uint8_t min_quantity);
+  ValidationStockLevel(uint32_t timeout, validation::proto::StockLevel valStockLevelMsg);
   virtual ~ValidationStockLevel();
   virtual transaction_status_t Validate(::SyncClient &client);
-
- private:
-  uint32_t w_id;
-  uint32_t d_id;
-  uint8_t min_quantity;
 };
 
 } // namespace tpcc

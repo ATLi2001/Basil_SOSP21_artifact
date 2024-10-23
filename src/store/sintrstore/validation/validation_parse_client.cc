@@ -27,6 +27,10 @@
 #include "store/sintrstore/validation/validation_parse_client.h"
 #include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
 #include "store/sintrstore/validation/tpcc/delivery.h"
+#include "store/sintrstore/validation/tpcc/new_order.h"
+#include "store/sintrstore/validation/tpcc/order_status.h"
+#include "store/sintrstore/validation/tpcc/payment.h"
+#include "store/sintrstore/validation/tpcc/stock_level.h"
 #include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
 
 
@@ -47,13 +51,27 @@ ValidationTransaction *ValidationParseClient::Parse(const proto::TxnState& txnSt
     if (txn_type == "delivery") {
       ::tpcc::validation::proto::Delivery valTxnData = ::tpcc::validation::proto::Delivery();
       valTxnData.ParseFromString(txnState.txn_data());
-      return new ::tpcc::ValidationDelivery(
-        timeout, 
-        valTxnData.w_id(), 
-        valTxnData.d_id(), 
-        valTxnData.o_carrier_id(), 
-        valTxnData.ol_delivery_d()
-      );
+      return new ::tpcc::ValidationDelivery(timeout, valTxnData);
+    }
+    else if (txn_type == "new_order") {
+      ::tpcc::validation::proto::NewOrder valTxnData = ::tpcc::validation::proto::NewOrder();
+      valTxnData.ParseFromString(txnState.txn_data());
+      return new ::tpcc::ValidationNewOrder(timeout, valTxnData);
+    }
+    else if (txn_type == "order_status") {
+      ::tpcc::validation::proto::OrderStatus valTxnData = ::tpcc::validation::proto::OrderStatus();
+      valTxnData.ParseFromString(txnState.txn_data());
+      return new ::tpcc::ValidationOrderStatus(timeout, valTxnData);
+    }
+    else if (txn_type == "payment") {
+      ::tpcc::validation::proto::Payment valTxnData = ::tpcc::validation::proto::Payment();
+      valTxnData.ParseFromString(txnState.txn_data());
+      return new ::tpcc::ValidationPayment(timeout, valTxnData);
+    }
+    else if (txn_type == "stock_level") {
+      ::tpcc::validation::proto::StockLevel valTxnData = ::tpcc::validation::proto::StockLevel();
+      valTxnData.ParseFromString(txnState.txn_data());
+      return new ::tpcc::ValidationStockLevel(timeout, valTxnData);
     }
     else {
       Panic("Received unexpected txn type: %s", txn_type.c_str());

@@ -26,24 +26,21 @@
 #ifndef VALIDATION_DELIVERY_H
 #define VALIDATION_DELIVERY_H
 
+#include "store/benchmark/async/tpcc/delivery.h"
 #include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
+#include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
 #include "store/common/frontend/sync_client.h"
 
 namespace tpcc {
 
-class ValidationDelivery : public ValidationTPCCTransaction {
+class ValidationDelivery : public ValidationTPCCTransaction, public Delivery {
  public:
   // constructor with no randomness (all fields directly initialized)
   ValidationDelivery(uint32_t timeout, uint32_t w_id, uint32_t d_id, 
     uint32_t o_carrier_id, uint32_t ol_delivery_d);
+  ValidationDelivery(uint32_t timeout, validation::proto::Delivery &valDeliveryMsg);
   virtual ~ValidationDelivery();
   virtual transaction_status_t Validate(::SyncClient &client);
-
- private:
-  uint32_t w_id;
-  uint32_t d_id;
-  uint32_t o_carrier_id;
-  uint32_t ol_delivery_d;
 };
 
 } // namespace tpcc

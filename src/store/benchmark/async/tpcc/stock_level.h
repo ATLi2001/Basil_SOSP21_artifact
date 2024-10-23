@@ -36,6 +36,7 @@ namespace tpcc {
 class StockLevel : public TPCCTransaction {
  public:
   StockLevel(uint32_t w_id, uint32_t d_id, std::mt19937 &gen);
+  StockLevel() {};
   virtual ~StockLevel();
 
  protected:

@@ -41,6 +41,7 @@ class Payment : public TPCCTransaction {
  public:
   Payment(uint32_t w_id, uint32_t c_c_last, uint32_t c_c_id,
       uint32_t num_warehouses, std::mt19937 &gen);
+  Payment() {};
   virtual ~Payment();
 
  protected:

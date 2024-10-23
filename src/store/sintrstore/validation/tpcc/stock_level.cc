@@ -31,8 +31,18 @@
 namespace tpcc {
 
 ValidationStockLevel::ValidationStockLevel(uint32_t timeout, uint32_t w_id, uint32_t d_id, uint8_t min_quantity) :
-  ValidationTPCCTransaction(timeout),
-  w_id(w_id), d_id(d_id), min_quantity(min_quantity) {
+    ValidationTPCCTransaction(timeout) {
+  this->w_id = w_id;
+  this->d_id = d_id;
+  this->min_quantity = min_quantity;
+}
+
+ValidationStockLevel::ValidationStockLevel(uint32_t timeout, validation::proto::StockLevel valStockLevelMsg) : 
+    ValidationTPCCTransaction(timeout) {
+  w_id = valStockLevelMsg.w_id();
+  d_id = valStockLevelMsg.d_id();
+  // protobuf only has uint32 type, but here we only need uint8_t
+  min_quantity = valStockLevelMsg.min_quantity() & 0xFF;
 }
 
 ValidationStockLevel::~ValidationStockLevel() {

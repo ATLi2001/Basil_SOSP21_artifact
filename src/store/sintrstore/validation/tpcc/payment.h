@@ -26,31 +26,21 @@
 #ifndef VALIDATION_PAYMENT_H
 #define VALIDATION_PAYMENT_H
 
-#include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
 #include "store/benchmark/async/tpcc/payment.h"
+#include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
+#include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
 #include "store/common/frontend/sync_client.h"
   
 namespace tpcc {
 
-class ValidationPayment : public ValidationTPCCTransaction {
+class ValidationPayment : public ValidationTPCCTransaction, public Payment {
  public:
   // constructor with no randomness (all fields directly initialized)
   ValidationPayment(uint32_t timeout, uint32_t w_id, uint32_t d_id, uint32_t d_w_id, uint32_t c_w_id,
     uint32_t c_d_id, uint32_t c_id, uint32_t h_amount, uint32_t h_date, bool c_by_last_name, std::string c_last);
+  ValidationPayment(uint32_t timeout, validation::proto::Payment valPaymentMsg);
   virtual ~ValidationPayment();
   virtual transaction_status_t Validate(::SyncClient &client);
-
- private:
-  uint32_t w_id;
-  uint32_t d_id;
-  uint32_t d_w_id;
-  uint32_t c_w_id;
-  uint32_t c_d_id;
-  uint32_t c_id;
-  uint32_t h_amount;
-  uint32_t h_date;
-  bool c_by_last_name;
-  std::string c_last;
 };
 
 } // namespace tpcc
