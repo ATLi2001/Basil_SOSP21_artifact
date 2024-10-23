@@ -23,26 +23,63 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef VALIDATION_ORDER_STATUS_H
-#define VALIDATION_ORDER_STATUS_H
+#ifndef TPCC_COMMON_H
+#define TPCC_COMMON_H
 
-#include "store/benchmark/async/tpcc/order_status.h"
-#include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
-#include "store/benchmark/async/tpcc/tpcc-validation-proto.pb.h"
-#include "store/common/frontend/sync_client.h"
+#include "lib/message.h"
+
+#include <string>
 
 namespace tpcc {
 
-class ValidationOrderStatus : public ValidationTPCCTransaction, public OrderStatus {
- public:
-  // constructor with no randomness (all fields directly initialized)
-  ValidationOrderStatus(uint32_t timeout, uint32_t w_id, uint32_t d_id, uint32_t c_w_id, 
-    uint32_t c_d_id, uint32_t c_id, uint32_t o_id, bool c_by_last_name, std::string c_last);
-  ValidationOrderStatus(uint32_t timeout, validation::proto::OrderStatus valOrderStatusMsg);
-  virtual ~ValidationOrderStatus();
-  virtual transaction_status_t Validate(::SyncClient &client);
+const std::string BENCHMARK_NAME = "tpcc";
+
+enum TPCC_TXN_TYPE {
+  TPCC_DELIVERY,
+  TPCC_NEW_ORDER,
+  TPCC_ORDER_STATUS,
+  TPCC_PAYMENT,
+  TPCC_STOCK_LEVEL
 };
 
-} // namespace tpcc
+inline std::string GetBenchmarkTxnTypeName(TPCC_TXN_TYPE txn_type) {
+  switch (txn_type) {
+    case TPCC_DELIVERY:
+      return "delivery";
+    case TPCC_NEW_ORDER:
+      return "new_order";
+    case TPCC_ORDER_STATUS:
+      return "order_status";
+    case TPCC_PAYMENT:
+      return "payment";
+    case TPCC_STOCK_LEVEL:
+      return "stock_level";
+    default:
+      Panic("Received unexpected txn type: %d", txn_type);
+  }
+}
 
-#endif /* VALIDATION_ORDER_STATUS_H */
+inline TPCC_TXN_TYPE GetBenchmarkTxnTypeEnum(std::string &txn_type) {
+  if (txn_type == "delivery") {
+    return TPCC_DELIVERY;
+  }
+  else if (txn_type == "new_order") {
+    return TPCC_NEW_ORDER;
+  }
+  else if (txn_type == "order_status") {
+    return TPCC_ORDER_STATUS;
+  }
+  else if (txn_type == "payment") {
+    return TPCC_PAYMENT;
+  }
+  else if (txn_type == "stock_level") {
+    return TPCC_STOCK_LEVEL;
+  }
+  else {
+    Panic("Received unexpected txn type: %s", txn_type.c_str());
+  }
+}
+
+}
+
+#endif /* TPCC_COMMON_H */

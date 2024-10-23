@@ -2,7 +2,7 @@ d := $(dir $(lastword $(MAKEFILE_LIST)))
 
 SRCS += $(addprefix $(d), tpcc_client.cc tpcc_transaction.cc new_order.cc tpcc_generator.cc tpcc_utils.cc payment.cc order_status.cc stock_level.cc delivery.cc)
 
-PROTOS += $(addprefix $(d), tpcc-proto.proto)
+PROTOS += $(addprefix $(d), tpcc-proto.proto tpcc-validation-proto.proto)
 
 OBJ-tpcc-transaction := $(LIB-store-frontend) $(o)tpcc_transaction.o
 

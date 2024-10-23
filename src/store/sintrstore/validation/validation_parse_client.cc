@@ -31,12 +31,13 @@
 #include "store/sintrstore/validation/tpcc/order_status.h"
 #include "store/sintrstore/validation/tpcc/payment.h"
 #include "store/sintrstore/validation/tpcc/stock_level.h"
-#include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
+#include "store/benchmark/async/tpcc/tpcc-validation-proto.pb.h"
+#include "store/benchmark/async/tpcc/tpcc_common.h"
 
 
 namespace sintrstore {
 
-ValidationTransaction *ValidationParseClient::Parse(const proto::TxnState& txnState) {
+ValidationTransaction *ValidationParseClient::Parse(const TxnState& txnState) {
   std::string txn_name(txnState.txn_name());
   
   size_t pos = txn_name.find("_");
@@ -47,34 +48,36 @@ ValidationTransaction *ValidationParseClient::Parse(const proto::TxnState& txnSt
   std::string txn_bench = txn_name.substr(0, pos);
   std::string txn_type = txn_name.substr(pos+1);
 
-  if (txn_bench == "tpcc") {
-    if (txn_type == "delivery") {
-      ::tpcc::validation::proto::Delivery valTxnData = ::tpcc::validation::proto::Delivery();
-      valTxnData.ParseFromString(txnState.txn_data());
-      return new ::tpcc::ValidationDelivery(timeout, valTxnData);
-    }
-    else if (txn_type == "new_order") {
-      ::tpcc::validation::proto::NewOrder valTxnData = ::tpcc::validation::proto::NewOrder();
-      valTxnData.ParseFromString(txnState.txn_data());
-      return new ::tpcc::ValidationNewOrder(timeout, valTxnData);
-    }
-    else if (txn_type == "order_status") {
-      ::tpcc::validation::proto::OrderStatus valTxnData = ::tpcc::validation::proto::OrderStatus();
-      valTxnData.ParseFromString(txnState.txn_data());
-      return new ::tpcc::ValidationOrderStatus(timeout, valTxnData);
-    }
-    else if (txn_type == "payment") {
-      ::tpcc::validation::proto::Payment valTxnData = ::tpcc::validation::proto::Payment();
-      valTxnData.ParseFromString(txnState.txn_data());
-      return new ::tpcc::ValidationPayment(timeout, valTxnData);
-    }
-    else if (txn_type == "stock_level") {
-      ::tpcc::validation::proto::StockLevel valTxnData = ::tpcc::validation::proto::StockLevel();
-      valTxnData.ParseFromString(txnState.txn_data());
-      return new ::tpcc::ValidationStockLevel(timeout, valTxnData);
-    }
-    else {
-      Panic("Received unexpected txn type: %s", txn_type.c_str());
+  if (txn_bench == ::tpcc::BENCHMARK_NAME) {
+    ::tpcc::TPCC_TXN_TYPE tpcc_txn_type = ::tpcc::GetBenchmarkTxnTypeEnum(txn_type);
+    switch (tpcc_txn_type) {
+      case ::tpcc::TPCC_DELIVERY: {
+        ::tpcc::validation::proto::Delivery valTxnData = ::tpcc::validation::proto::Delivery();
+        valTxnData.ParseFromString(txnState.txn_data());
+        return new ::tpcc::ValidationDelivery(timeout, valTxnData);
+      }
+      case ::tpcc::TPCC_NEW_ORDER: {
+        ::tpcc::validation::proto::NewOrder valTxnData = ::tpcc::validation::proto::NewOrder();
+        valTxnData.ParseFromString(txnState.txn_data());
+        return new ::tpcc::ValidationNewOrder(timeout, valTxnData);
+      }
+      case ::tpcc::TPCC_ORDER_STATUS: {
+        ::tpcc::validation::proto::OrderStatus valTxnData = ::tpcc::validation::proto::OrderStatus();
+        valTxnData.ParseFromString(txnState.txn_data());
+        return new ::tpcc::ValidationOrderStatus(timeout, valTxnData);
+      }
+      case ::tpcc::TPCC_PAYMENT: {
+        ::tpcc::validation::proto::Payment valTxnData = ::tpcc::validation::proto::Payment();
+        valTxnData.ParseFromString(txnState.txn_data());
+        return new ::tpcc::ValidationPayment(timeout, valTxnData);
+      }
+      case ::tpcc::TPCC_STOCK_LEVEL: {
+        ::tpcc::validation::proto::StockLevel valTxnData = ::tpcc::validation::proto::StockLevel();
+        valTxnData.ParseFromString(txnState.txn_data());
+        return new ::tpcc::ValidationStockLevel(timeout, valTxnData);
+      }
+      default:
+        Panic("Received unexpected txn type: %s", txn_type.c_str());
     }
   }
   else {

@@ -371,11 +371,6 @@ message SendView {
 
 // Sintr specific messages
 
-message TxnState {
-  optional string txn_name = 1;
-  optional bytes txn_data = 2;
-}
-
 message BeginValidateTxnMessage {
   required uint64 client_id = 1;
   required uint64 client_seq_num = 2;

@@ -24,3 +24,8 @@ message TransactionMessage {
     repeated ReadMessage readset = 1;
     repeated WriteMessage writeset = 2;
 }
+
+message TxnState {
+    optional string txn_name = 1;
+    optional bytes txn_data = 2;
+}

@@ -31,7 +31,7 @@
 #include "store/sintrstore/client2client.h"
 #include "store/sintrstore/validation/validation_client.h"
 #include "store/sintrstore/validation/validation_transaction.h"
-#include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
+#include "store/benchmark/async/tpcc/tpcc-validation-proto.pb.h"
 
 #include <google/protobuf/util/message_differencer.h>
 
@@ -69,11 +69,11 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
     beginValTxnMsg.ParseFromString(data);
     HandleBeginValidateTxnMessage(remote, beginValTxnMsg);
   }
-  else if(type == fwdReadResult.GetTypeName()) {
+  else if (type == fwdReadResult.GetTypeName()) {
     fwdReadResult.ParseFromString(data);
     HandleForwardReadResult(fwdReadResult);
   }
-  else if(type == finishValTxnMsg.GetTypeName()) {
+  else if (type == finishValTxnMsg.GetTypeName()) {
     finishValTxnMsg.ParseFromString(data);
     HandleFinishValidateTxnMessage(finishValTxnMsg);
   }
@@ -96,18 +96,18 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
   proto::BeginValidateTxnMessage beginValTxnMsg = proto::BeginValidateTxnMessage();
   beginValTxnMsg.set_client_id(client_id);
   beginValTxnMsg.set_client_seq_num(id);
-  proto::TxnState *protoTxnState = new proto::TxnState();
+  TxnState *protoTxnState = new TxnState();
   // test data
-  ::tpcc::validation::proto::Delivery delivery = ::tpcc::validation::proto::Delivery();
-  delivery.set_w_id(0);
-  delivery.set_d_id(0);
-  delivery.set_o_carrier_id(0);
-  delivery.set_ol_delivery_d(0);
-  std::string deliveryStr;
-  delivery.SerializeToString(&deliveryStr);
-  protoTxnState->set_txn_name("tpcc_delivery");
-  protoTxnState->set_txn_data(deliveryStr);
-  // protoTxnState->ParseFromString(txnState);
+  // ::tpcc::validation::proto::Delivery delivery = ::tpcc::validation::proto::Delivery();
+  // delivery.set_w_id(0);
+  // delivery.set_d_id(0);
+  // delivery.set_o_carrier_id(0);
+  // delivery.set_ol_delivery_d(0);
+  // std::string deliveryStr;
+  // delivery.SerializeToString(&deliveryStr);
+  // protoTxnState->set_txn_name("tpcc_delivery");
+  // protoTxnState->set_txn_data(deliveryStr);
+  protoTxnState->ParseFromString(txnState);
   beginValTxnMsg.set_allocated_txn_state(protoTxnState);
 
   Debug("SendToAll beginValTxnMsg");
@@ -120,11 +120,11 @@ void Client2Client::ForwardReadResult(const std::string &key, const std::string 
   proto::ForwardReadResult fwdReadResult = proto::ForwardReadResult();
   fwdReadResult.set_client_id(client_id);
   fwdReadResult.set_client_seq_num(client_seq_num);
-  // fwdReadResult.set_key(key);
-  // fwdReadResult.set_value(value);
+  fwdReadResult.set_key(key);
+  fwdReadResult.set_value(value);
   // test data
-  fwdReadResult.set_key("0");
-  fwdReadResult.set_value("00");
+  // fwdReadResult.set_key("0");
+  // fwdReadResult.set_value("00");
   fwdReadResult.mutable_timestamp()->set_timestamp(ts.getTimestamp());
   fwdReadResult.mutable_timestamp()->set_id(ts.getID());
   if (params.validateProofs) {
@@ -142,7 +142,7 @@ void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote
     const proto::BeginValidateTxnMessage &beginValTxnMsg) {
   uint64_t curr_client_id = beginValTxnMsg.client_id();
   uint64_t curr_client_seq_num = beginValTxnMsg.client_seq_num();
-  proto::TxnState txnState = beginValTxnMsg.txn_state();
+  TxnState txnState = beginValTxnMsg.txn_state();
   Debug(
     "HandleBeginValidateTxnMessage: from client %lu, seq num %lu", 
     curr_client_id, 

@@ -28,7 +28,7 @@
 
 #include "store/benchmark/async/tpcc/stock_level.h"
 #include "store/sintrstore/validation/tpcc/tpcc_transaction.h"
-#include "store/sintrstore/validation/tpcc/tpcc-validation-proto.pb.h"
+#include "store/benchmark/async/tpcc/tpcc-validation-proto.pb.h"
 #include "store/common/frontend/sync_client.h"
 
 namespace tpcc {

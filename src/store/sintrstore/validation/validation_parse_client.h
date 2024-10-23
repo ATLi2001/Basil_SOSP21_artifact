@@ -27,7 +27,7 @@
 #define _VALIDATION_PARSE_CLIENT_H_
 
 #include "lib/assert.h"
-#include "store/sintrstore/sintr-proto.pb.h"
+#include "store/common/common-proto.pb.h"
 #include "store/sintrstore/validation/validation_transaction.h"
 
 namespace sintrstore {
@@ -38,7 +38,7 @@ class ValidationParseClient {
   ValidationParseClient(uint32_t timeout): timeout(timeout) {}
   ~ValidationParseClient(){}
 
-  ValidationTransaction *Parse(const proto::TxnState& txnState);
+  ValidationTransaction *Parse(const TxnState& txnState);
 
  private:
   uint32_t timeout;
