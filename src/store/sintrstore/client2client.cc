@@ -32,6 +32,7 @@
 #include "store/sintrstore/validation/validation_client.h"
 #include "store/sintrstore/validation/validation_transaction.h"
 #include "store/benchmark/async/tpcc/tpcc-validation-proto.pb.h"
+#include "store/sintrstore/common.h"
 
 #include <google/protobuf/util/message_differencer.h>
 
@@ -116,7 +117,6 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &
 
 void Client2Client::ForwardReadResult(const std::string &key, const std::string &value, 
     const Timestamp &ts, const proto::CommittedProof *proof) {
-  Debug("SendToAll ForwardReadResult");
   proto::ForwardReadResult fwdReadResult = proto::ForwardReadResult();
   fwdReadResult.set_client_id(client_id);
   fwdReadResult.set_client_seq_num(client_seq_num);
@@ -135,6 +135,13 @@ void Client2Client::ForwardReadResult(const std::string &key, const std::string 
     *fwdReadResult.mutable_proof() = *proof;
   }
 
+  Debug(
+    "SendToAll ForwardReadResult: client id %lu, seq num %lu, key %s, value %s",
+    client_id,
+    client_seq_num,
+    BytesToHex(key, 16).c_str(),
+    BytesToHex(value, 16).c_str()
+  );
   transport->SendMessageToAll(this, fwdReadResult);
 }
 
@@ -155,6 +162,7 @@ void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote
   if (valThread != NULL) {
     Debug("valThread->join()");
     valThread->join();
+    Debug("valThread->join() done");
   }
   TransportAddress *remoteCopy = remote.clone();
 
@@ -164,17 +172,20 @@ void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote
     transaction_status_t result = valTxn->Validate(syncClient);
 
     if (result == COMMITTED) {
-      proto::Transaction *txn = valClient->GetCompletedValTxn(curr_client_id, curr_client_seq_num);
+      Debug("Completed validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
+      proto::ValidationTxn *txn = valClient->GetCompletedValTxn(curr_client_id, curr_client_seq_num);
       proto::FinishValidateTxnMessage finishValTxnMsg = proto::FinishValidateTxnMessage();
       finishValTxnMsg.set_client_id(client_id);
       *finishValTxnMsg.mutable_txn() = *txn;
       // signature later
 
       transport->SendMessage(this, *remoteCopy, finishValTxnMsg);
+      Debug("transport->SendMessage complete");
     }
 
     delete remoteCopy;
     delete valTxn;
+    Debug("thread exiting for validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
   });
 }
 
@@ -187,8 +198,8 @@ void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdR
     "HandleForwardReadResult: from client %lu, seq num %lu, key %s, value %s", 
     curr_client_id, 
     curr_client_seq_num,
-    curr_key.c_str(),
-    curr_value.c_str()
+    BytesToHex(curr_key, 16).c_str(),
+    BytesToHex(curr_value, 16).c_str()
   );
   // tell valClient about this readReply
   valClient->ValidateForwardReadResult(fwdReadResult);
@@ -196,7 +207,12 @@ void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdR
 
 void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg) {
   uint64_t curr_client_id = finishValTxnMsg.client_id();
-  Debug("HandleFinishValidateTxnMessage: from client %lu", curr_client_id);
+  proto::ValidationTxn valTxn = finishValTxnMsg.txn();
+  if (valTxn.client_id() != client_id) {
+    Debug("Received unexpected FinishValidationTxnMessage. Intended for client %lu, I am client %lu", valTxn.client_id(), client_id);
+    return;
+  }
+  Debug("HandleFinishValidateTxnMessage: from client %lu, for my seq num %lu", curr_client_id, valTxn.client_seq_num());
 }
 
 } // namespace sintrstore

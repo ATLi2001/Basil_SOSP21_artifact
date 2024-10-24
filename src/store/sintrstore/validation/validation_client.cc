@@ -25,6 +25,7 @@
  **********************************************************************/
 
 #include "store/sintrstore/validation/validation_client.h"
+#include "store/sintrstore/common.h"
 
 namespace sintrstore {
 
@@ -36,7 +37,7 @@ ValidationClient::~ValidationClient() {
 
 void ValidationClient::Begin(begin_callback bcb, begin_timeout_callback btcb,
     uint32_t timeout, bool retry, const std::string &txnState) {
-  txn = proto::Transaction();
+  txn = proto::ValidationTxn();
   txn.set_client_id(txn_client_id);
   txn.set_client_seq_num(txn_client_seq_num);
   readValues.clear();
@@ -54,15 +55,17 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
       ts.serialize(read->mutable_readtime());
     }
 
-    std::cerr << "validation_read_callback on key " << key << ", value " << val << std::endl;
+    std::cerr << "validation_read_callback on key " << BytesToHex(key, 16) << ", value " << BytesToHex(val, 16) << std::endl;
 
     gcb(status, key, val, ts);
   };
 
-  std::cerr << "ValidationClient::Get on key " << key << std::endl;
+  std::unique_lock<std::mutex> lock(valTxnMutex);
+  std::cerr << "ValidationClient::Get on key " << BytesToHex(key, 16) << std::endl;
 
   // read locally in buffer
   if (BufferGet(key, vrcb)) {
+    std::cerr << "ValidationClient::BufferGet on key " << BytesToHex(key, 16) << std::endl;
     return;
   }
 
@@ -111,32 +114,74 @@ void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult 
   uint64_t curr_client_seq_num = fwdReadResult.client_seq_num();
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
+  std::cerr << "ValidateForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num << std::endl;
+
+  if (curr_client_id != txn_client_id || curr_client_seq_num != txn_client_seq_num) {
+    std::cerr << "Received stale ForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num << std::endl;
+    return; // this is a stale request
+  }
+
+  // need to deal with the case where the forwarded read result is for a get that the validation transaction has not yet gotten to
+  std::unique_lock<std::mutex> lock(valTxnMutex);
+  std::cerr << "lock(valTxnMutex) for ForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num << std::endl;
 
   // find matching pending get by first going off txn client id and sequence number, then key
   auto itr = pendingGets.find(std::make_pair(curr_client_id, curr_client_seq_num));
   if (itr == pendingGets.end()) {
-    return; // this is a stale request
+    for (const auto &read : txn.read_set()) {
+      if (read.key() == curr_key) {
+        return; // this is a stale request
+      }
+    }
+    // forwarded read result is for a get that the validation transaction has not yet gotten to
+    // add to readset
+    std::cerr << "lock(valTxnMutex) for ForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num 
+              << ", before PendingGet registered for key " << BytesToHex(curr_key, 16) << std::endl;
+    ReadMessage *read = txn.add_read_set();
+    read->set_key(curr_key);
+    *read->mutable_readtime() = fwdReadResult.timestamp();
+    return;
   }
-  std::vector<PendingValidationGet *> reqs = itr->second;
+  std::cerr << "pendingGets.find() found for ForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num << std::endl;
+  std::vector<PendingValidationGet *> *reqs = &itr->second;
+  std::cerr << reqs->size() << " ";
+  for (auto req: *reqs) {
+    std::cerr << BytesToHex(req->key, 16) << " ";
+  }
   auto reqs_itr = std::find_if(
-    reqs.begin(), reqs.end(), 
+    reqs->begin(), reqs->end(), 
     [&curr_key](const PendingValidationGet *req) { return req->key == curr_key; }
   );
-  if (reqs_itr == reqs.end()) {
-    return; // this is a stale request
+  std::cerr << "hello?" << std::endl;
+  if (reqs_itr == reqs->end()) {
+    for (const auto &read : txn.read_set()) {
+      if (read.key() == curr_key) {
+        return; // this is a stale request
+      }
+    }
+    // forwarded read result is for a get that the validation transaction has not yet gotten to
+    // add to readset
+    std::cerr << "lock(valTxnMutex) for ForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num 
+          << ", before PendingGet registered for key " << BytesToHex(curr_key, 16) << std::endl;
+    ReadMessage *read = txn.add_read_set();
+    read->set_key(curr_key);
+    *read->mutable_readtime() = fwdReadResult.timestamp();
+    return;
   }
+  std::cerr << "reqs.find() found for ForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num << std::endl;
   // callback
   PendingValidationGet *req = *reqs_itr;
   req->ts = Timestamp(fwdReadResult.timestamp());
   req->vrcb(REPLY_OK, req->key, curr_value, req->ts, true);
 
   // remove from vector
-  reqs.erase(reqs_itr);
+  reqs->erase(reqs_itr);
   // free memory
   delete req;
 }
 
-proto::Transaction *ValidationClient::GetCompletedValTxn(uint64_t txn_client_id, uint64_t txn_client_seq_num) {
+proto::ValidationTxn *ValidationClient::GetCompletedValTxn(uint64_t txn_client_id, uint64_t txn_client_seq_num) {
+  std::cerr << "ValidationClient::GetCompletedValTxn called for txn client id " << txn_client_id << " seq num " << txn_client_seq_num << std::endl;
   return &txn;
 }
 

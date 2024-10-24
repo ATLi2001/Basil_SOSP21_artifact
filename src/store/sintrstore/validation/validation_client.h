@@ -36,6 +36,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <mutex>
 
 namespace sintrstore {
 
@@ -77,7 +78,7 @@ class ValidationClient : public ::Client {
   void ValidateForwardReadResult(const proto::ForwardReadResult &fwdReadResult);
 
   // return transaction for completed validation transaction
-  proto::Transaction *GetCompletedValTxn(uint64_t txn_client_id, uint64_t txn_client_seq_num);
+  proto::ValidationTxn *GetCompletedValTxn(uint64_t txn_client_id, uint64_t txn_client_seq_num);
 
  private:
   struct PendingValidationGet {
@@ -104,7 +105,9 @@ class ValidationClient : public ::Client {
   // Ongoing transaction ID.
   uint64_t txn_client_seq_num;
   // Current transaction.
-  proto::Transaction txn;
+  proto::ValidationTxn txn;
+  // mutex for current txn
+  std::mutex valTxnMutex;
   // map of buffered key-value pairs
   std::map<std::string, std::string> readValues;
   // map from (txn_client_id, txn_client_seq_num) to vector of pending validation gets

@@ -387,8 +387,16 @@ message ForwardReadResult {
   optional Signature signature = 7;
 }
 
+// like the Transaction message type, but with less fields needed
+message ValidationTxn {
+  required uint64 client_id = 1;
+  required uint64 client_seq_num = 2;
+  repeated ReadMessage read_set = 3;
+  repeated WriteMessage write_set = 4;
+}
+
 message FinishValidateTxnMessage {
   required uint64 client_id = 1;
-  required Transaction txn = 2;
+  required ValidationTxn txn = 2;
   optional Signature signature = 3;
 }
