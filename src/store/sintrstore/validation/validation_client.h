@@ -36,11 +36,13 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <mutex>
+#include <shared_mutex>
+
+#include "tbb/concurrent_hash_map.h"
 
 namespace sintrstore {
 
-typedef std::function<void(int, const std::string &,
+typedef std::function<void(int, const std::string &, const std::string &,
   const std::string &, const Timestamp &, bool)> validation_read_callback;
 typedef std::function<void(int, const std::string &)> validation_read_timeout_callback;
 
@@ -94,7 +96,11 @@ class ValidationClient : public ::Client {
     validation_read_timeout_callback vrtcb;
   };
   
-  bool BufferGet(const std::string &key, validation_read_callback vrcb);
+  bool BufferGet(const std::string &txn_id, const std::string &key, validation_read_callback vrcb);
+  // add (key, ts) to the readset of transaction txn_id
+  void AddReadset(const std::string &txn_id, const std::string &key, 
+    const std::string &value, const Timestamp &ts);
+  std::string ToTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num);
 
   // My own client ID
   uint64_t client_id;
@@ -104,14 +110,17 @@ class ValidationClient : public ::Client {
   uint64_t txn_client_id;
   // Ongoing transaction ID.
   uint64_t txn_client_seq_num;
-  // Current transaction.
   proto::ValidationTxn txn;
-  // mutex for current txn
-  std::mutex valTxnMutex;
-  // map of buffered key-value pairs
-  std::map<std::string, std::string> readValues;
+  // Transactions yet to be validated, one of which is currently ongoing validation
+  // map from (transaction client id, transaction client seq num) to validation transaction
+  typedef tbb::concurrent_hash_map<std::string, proto::ValidationTxn *> pendingValTxnsMap;
+  pendingValTxnsMap pendingValTxns;
+  // map from (transaction client id, transaction client seq num) to map of buffered key-value pairs
+  typedef tbb::concurrent_hash_map<std::string, std::map<std::string, std::string>> readValuesMap;
+  readValuesMap readValues;
   // map from (txn_client_id, txn_client_seq_num) to vector of pending validation gets
-  std::map<std::pair<uint64_t, uint64_t>, std::vector<PendingValidationGet *>> pendingGets;
+  typedef tbb::concurrent_hash_map<std::string, std::vector<PendingValidationGet *>> pendingGetsMap;
+  pendingGetsMap pendingGets;
 };
 
 } // namespace sintrstore

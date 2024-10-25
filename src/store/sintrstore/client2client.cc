@@ -45,9 +45,9 @@ Client2Client::Client2Client(transport::Configuration *config, Transport *transp
       PingInitiator(this, transport, config->n),
       client_id(client_id), client_transport_id(client_transport_id), transport(transport), config(config), group(group),
       timeServer(timeServer), pingClients(pingClients), params(params),
-      keyManager(keyManager), verifier(verifier), lastReqId(0UL) {
+      keyManager(keyManager), verifier(verifier) {
   
-  valThread = NULL;
+  valThread = new std::thread(&Client2Client::ValidationThreadFunction, this);
   valClient = new ValidationClient(client_id, params); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
   transport->Register(this, *config, group, client_transport_id); 
@@ -155,38 +155,10 @@ void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote
     curr_client_id, 
     curr_client_seq_num
   );
-  valClient->SetTxnClientId(curr_client_id);
-  valClient->SetTxnClientSeqNum(curr_client_seq_num);
-
-  // create the appropriate validation transaction
-  if (valThread != NULL) {
-    Debug("valThread->join()");
-    valThread->join();
-    Debug("valThread->join() done");
-  }
+  ValidationTransaction *valTxn = valParseClient->Parse(txnState);
   TransportAddress *remoteCopy = remote.clone();
-
-  valThread = new std::thread([this, txnState, curr_client_id, curr_client_seq_num, remoteCopy](){
-    ValidationTransaction *valTxn = valParseClient->Parse(txnState);
-    ::SyncClient syncClient(valClient);
-    transaction_status_t result = valTxn->Validate(syncClient);
-
-    if (result == COMMITTED) {
-      Debug("Completed validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
-      proto::ValidationTxn *txn = valClient->GetCompletedValTxn(curr_client_id, curr_client_seq_num);
-      proto::FinishValidateTxnMessage finishValTxnMsg = proto::FinishValidateTxnMessage();
-      finishValTxnMsg.set_client_id(client_id);
-      *finishValTxnMsg.mutable_txn() = *txn;
-      // signature later
-
-      transport->SendMessage(this, *remoteCopy, finishValTxnMsg);
-      Debug("transport->SendMessage complete");
-    }
-
-    delete remoteCopy;
-    delete valTxn;
-    Debug("thread exiting for validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
-  });
+  ValidationInfo *valInfo = new ValidationInfo(curr_client_id, curr_client_seq_num, std::move(valTxn), std::move(remoteCopy));
+  validationQueue.push(valInfo);
 }
 
 void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdReadResult) {
@@ -213,6 +185,37 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
     return;
   }
   Debug("HandleFinishValidateTxnMessage: from client %lu, for my seq num %lu", curr_client_id, valTxn.client_seq_num());
+}
+
+void Client2Client::ValidationThreadFunction() {
+  ::SyncClient syncClient(valClient);
+  for(;;) {
+    ValidationInfo *valInfo;
+    validationQueue.pop(valInfo);
+    uint64_t curr_client_id = valInfo->txn_client_id;
+    uint64_t curr_client_seq_num = valInfo->txn_client_seq_num;
+    ValidationTransaction *valTxn = valInfo->valTxn;
+
+    valClient->SetTxnClientId(curr_client_id);
+    valClient->SetTxnClientSeqNum(curr_client_seq_num);
+
+    transaction_status_t result = valTxn->Validate(syncClient);
+
+    if (result == COMMITTED) {
+      Debug("Completed validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
+      proto::ValidationTxn *txn = valClient->GetCompletedValTxn(curr_client_id, curr_client_seq_num);
+      proto::FinishValidateTxnMessage finishValTxnMsg = proto::FinishValidateTxnMessage();
+      finishValTxnMsg.set_client_id(client_id);
+      *finishValTxnMsg.mutable_txn() = *txn;
+      // signature later
+
+      transport->SendMessage(this, *valInfo->remote, finishValTxnMsg);
+      Debug("transport->SendMessage complete");
+    }
+
+    delete valInfo;
+    Debug("thread exiting for validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
+  }
 }
 
 } // namespace sintrstore

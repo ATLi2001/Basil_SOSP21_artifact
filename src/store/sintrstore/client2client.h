@@ -52,6 +52,8 @@
 #include <string>
 #include <vector>
 
+#include "tbb/concurrent_queue.h"
+
 namespace sintrstore {
 
 class Client2Client : public TransportReceiver, public PingInitiator, public PingTransport {
@@ -82,9 +84,30 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
  private:
 
+  // contains necessary information for ValidationClient to validate
+  struct ValidationInfo {
+    ValidationInfo(uint64_t txn_client_id, uint64_t txn_client_seq_num, 
+        ValidationTransaction *valTxn, TransportAddress *remote) : 
+        txn_client_id(txn_client_id), txn_client_seq_num(txn_client_seq_num), 
+        valTxn(valTxn), remote(remote) {}
+    ~ValidationInfo() {
+      delete valTxn;
+      delete remote;
+    }
+    // client id that initiated this validation
+    uint64_t txn_client_id;
+    // sequence number of transaction on initiating client
+    uint64_t txn_client_seq_num;
+    // actual transaction that we can call Validate on
+    ValidationTransaction *valTxn;
+    // address of initiating client
+    TransportAddress *remote;
+  };
+  
   void HandleBeginValidateTxnMessage(const TransportAddress &remote, const proto::BeginValidateTxnMessage &beginValTxnMsg);
   void HandleForwardReadResult(const proto::ForwardReadResult &fwdReadResult);
   void HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg);
+  void ValidationThreadFunction();
 
   const uint64_t client_id; // Unique ID for this client.
   const uint64_t client_transport_id; // unique transport id for this client
@@ -97,16 +120,16 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   KeyManager *keyManager;
   Verifier *verifier;
   bool failureActive;
+  // current transaction sequence number (to send to others)
+  uint64_t client_seq_num;
 
   // thread for validation
   std::thread *valThread;
   ValidationClient *valClient;
   ValidationParseClient *valParseClient;
-  // current transaction sequence number
-  uint64_t client_seq_num;
-  uint64_t lastReqId;
-  proto::Transaction txn;
-  std::map<std::string, std::string> readValues;
+  // concurrent queue of transactions to be validated, has blocking semantics for pop
+  tbb::concurrent_bounded_queue<ValidationInfo *> validationQueue;
+
 
   proto::BeginValidateTxnMessage beginValTxnMsg;
   proto::ForwardReadResult fwdReadResult;
