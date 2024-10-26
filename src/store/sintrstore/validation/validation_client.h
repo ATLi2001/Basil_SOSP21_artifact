@@ -42,7 +42,7 @@
 
 namespace sintrstore {
 
-typedef std::function<void(int, const std::string &, const std::string &,
+typedef std::function<void(int, uint64_t, uint64_t, const std::string &,
   const std::string &, const Timestamp &, bool)> validation_read_callback;
 typedef std::function<void(int, const std::string &)> validation_read_timeout_callback;
 
@@ -96,9 +96,10 @@ class ValidationClient : public ::Client {
     validation_read_timeout_callback vrtcb;
   };
   
-  bool BufferGet(const std::string &txn_id, const std::string &key, validation_read_callback vrcb);
+  bool BufferGet(uint64_t txn_client_id, uint64_t txn_client_seq_num, const std::string &key, 
+    validation_read_callback vrcb);
   // add (key, ts) to the readset of transaction txn_id
-  void AddReadset(const std::string &txn_id, const std::string &key, 
+  void AddReadset(uint64_t txn_client_id, uint64_t txn_client_seq_num, const std::string &key, 
     const std::string &value, const Timestamp &ts);
   std::string ToTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num);
 
