@@ -111,7 +111,6 @@ class ValidationClient : public ::Client {
   uint64_t txn_client_id;
   // Ongoing transaction ID.
   uint64_t txn_client_seq_num;
-  proto::ValidationTxn txn;
   // Transactions yet to be validated, one of which is currently ongoing validation
   // map from (transaction client id, transaction client seq num) to validation transaction
   typedef tbb::concurrent_hash_map<std::string, proto::ValidationTxn *> pendingValTxnsMap;

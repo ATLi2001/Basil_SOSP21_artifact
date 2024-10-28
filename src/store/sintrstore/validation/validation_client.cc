@@ -61,17 +61,21 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
       AddReadset(txn_client_id, txn_client_seq_num, key, value, ts);
     }
 
-    std::cerr << "validation_read_callback on key " << BytesToHex(key, 16) << ", value " << BytesToHex(value, 16) << std::endl;
+    Debug("validation_read_callback on key %s, value %s", BytesToHex(key, 16).c_str(), BytesToHex(value, 16).c_str());
 
     gcb(status, key, value, ts);
   };
 
-  std::cerr << "ValidationClient::Get for client id " << txn_client_id << ", seq num " << txn_client_seq_num 
-            << " on key " << BytesToHex(key, 16) << std::endl;
+  Debug(
+    "ValidationClient::Get for client id %lu, seq num %lu on key %s", 
+    txn_client_id, 
+    txn_client_seq_num, 
+    BytesToHex(key, 16).c_str()
+  );
 
   // read locally in buffer
   if (BufferGet(txn_client_id, txn_client_seq_num, key, vrcb)) {
-    std::cerr << "ValidationClient::BufferGet on key " << BytesToHex(key, 16) << std::endl;
+    Debug("ValidationClient::BufferGet on key %s", BytesToHex(key, 16).c_str());
     return;
   }
 
@@ -133,8 +137,12 @@ void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult 
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
   Timestamp curr_ts = Timestamp(fwdReadResult.timestamp());
-  std::cerr << "ValidateForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num 
-            << " for key " << BytesToHex(curr_key, 16) << std::endl;
+  Debug(
+    "ValidateForwardReadResult from client id %lu, seq num %lu for key %s", 
+    curr_client_id,
+    curr_client_seq_num,
+    BytesToHex(curr_key, 16).c_str()
+  );
 
   // find matching pending get by first going off txn client id and sequence number, then key
   // if forwarded read result is for a get that the validation transaction has not yet gotten to,
@@ -144,8 +152,12 @@ void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult 
 
   pendingGetsMap::accessor a;
   if (!pendingGets.find(a, curr_txn_id)) {
-    std::cerr << "ValidateForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num 
-              << ", before PendingGet registered for key " << BytesToHex(curr_key, 16) << std::endl;
+    Debug(
+      "ValidateForwardReadResult from client id %lu, seq num %lu, before txn_id in pendingGets registered for key %s", 
+      curr_client_id,
+      curr_client_seq_num,
+      BytesToHex(curr_key, 16).c_str()
+    );
     AddReadset(curr_client_id, curr_client_seq_num, curr_key, curr_value, curr_ts);
     return;
   }
@@ -156,8 +168,12 @@ void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult 
     [&curr_key](const PendingValidationGet *req) { return req->key == curr_key; }
   );
   if (reqs_itr == reqs->end()) {
-    std::cerr << "ValidateForwardReadResult from client " << curr_client_id << ", seq num " << curr_client_seq_num 
-              << ", before PendingGet registered for key " << BytesToHex(curr_key, 16) << std::endl;
+    Debug(
+      "ValidateForwardReadResult from client id %lu, seq num %lu, before PendingGet registered for key %s", 
+      curr_client_id,
+      curr_client_seq_num,
+      BytesToHex(curr_key, 16).c_str()
+    );
     AddReadset(curr_client_id, curr_client_seq_num, curr_key, curr_value, curr_ts);
     return;
   }
@@ -181,7 +197,11 @@ proto::ValidationTxn *ValidationClient::GetCompletedValTxn(uint64_t txn_client_i
     Panic("cannot find transaction %s in pendingValsTxns", txn_id.c_str());
   }
   proto::ValidationTxn *txn = a->second;
-  std::cerr << "ValidationClient::GetCompletedValTxn called for txn client id " << txn_client_id << " seq num " << txn_client_seq_num << std::endl;
+  Debug(
+    "ValidationClient::GetCompletedValTxn called for txn client id %lu, seq num %lu",
+    txn_client_id,
+    txn_client_seq_num
+  );
   pendingValTxns.erase(a);
   return txn;
 }
