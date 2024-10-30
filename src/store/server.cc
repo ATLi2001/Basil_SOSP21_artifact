@@ -631,7 +631,7 @@ int main(int argc, char **argv) {
 																			FLAGS_indicus_dispatchCallbacks,
 																			FLAGS_indicus_all_to_all_fb,
 																		  FLAGS_indicus_no_fallback, FLAGS_indicus_relayP1_timeout,
-																		  FLAGS_indicus_replica_gossip);
+																		  FLAGS_indicus_replica_gossip, 0);
       Debug("Starting new server object");
       server = new sintrstore::Server(config, FLAGS_group_idx,
                                         FLAGS_replica_idx, FLAGS_num_shards, FLAGS_num_groups, tport,

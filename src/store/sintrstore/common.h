@@ -388,6 +388,8 @@ typedef struct Parameters {
   const uint64_t relayP1_timeout;
   const bool replicaGossip;
 
+  const uint64_t maxValThreads;
+
   Parameters(bool signedMessages, bool validateProofs, bool hashDigest, bool verifyDeps,
     int signatureBatchSize, int64_t maxDepDepth, uint64_t readDepSize,
     bool readReplyBatch, bool adjustBatchSize, bool sharedMemBatches,
@@ -400,7 +402,8 @@ typedef struct Parameters {
     bool all_to_all_fb,
     bool no_fallback,
     uint64_t relayP1_timeout,
-    bool replicaGossip) :
+    bool replicaGossip,
+    uint64_t maxValThreads) :
     signedMessages(signedMessages), validateProofs(validateProofs),
     hashDigest(hashDigest), verifyDeps(verifyDeps), signatureBatchSize(signatureBatchSize),
     maxDepDepth(maxDepDepth), readDepSize(readDepSize),
@@ -417,7 +420,8 @@ typedef struct Parameters {
     all_to_all_fb(all_to_all_fb),
     no_fallback(no_fallback),
     relayP1_timeout(relayP1_timeout),
-    replicaGossip(replicaGossip) { }
+    replicaGossip(replicaGossip),
+    maxValThreads(maxValThreads) { }
 } Parameters;
 
 } // namespace sintrstore

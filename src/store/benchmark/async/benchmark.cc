@@ -285,6 +285,9 @@ DEFINE_string(indicus_inject_failure_type, if_args[0], "type of failure to"
     " inject (for Indicus)");
 DEFINE_validator(indicus_inject_failure_type, &ValidateInjectFailureType);
 
+// Sintr specific args
+DEFINE_uint64(sintr_max_val_threads, 1, "sintr max number of validation threads");
+
 DEFINE_bool(debug_stats, false, "record stats related to debugging");
 
 const std::string trans_args[] = {
@@ -1037,7 +1040,8 @@ int main(int argc, char **argv) {
 																				FLAGS_indicus_all_to_all_fb,
 																			  FLAGS_indicus_no_fallback,
 																				FLAGS_indicus_relayP1_timeout,
-																			  false);
+																			  false,
+                                        FLAGS_sintr_max_val_threads);
 
         uint64_t client_transport_id = FLAGS_num_clients * FLAGS_client_id + i;
         client = new sintrstore::Client(config, clientId,

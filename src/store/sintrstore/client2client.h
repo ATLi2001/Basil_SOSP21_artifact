@@ -123,8 +123,8 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   // current transaction sequence number (to send to others)
   uint64_t client_seq_num;
 
-  // thread for validation
-  std::thread *valThread;
+  // threads for validation
+  std::vector<std::thread *> valThreads;
   ValidationClient *valClient;
   ValidationParseClient *valParseClient;
   // concurrent queue of transactions to be validated, has blocking semantics for pop

@@ -47,14 +47,19 @@ Client2Client::Client2Client(transport::Configuration *config, Transport *transp
       timeServer(timeServer), pingClients(pingClients), params(params),
       keyManager(keyManager), verifier(verifier) {
   
-  valThread = new std::thread(&Client2Client::ValidationThreadFunction, this);
   valClient = new ValidationClient(client_id, params); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
   transport->Register(this, *config, group, client_transport_id); 
+  for (size_t i = 0; i < params.maxValThreads; i++) {
+    valThreads.push_back(new std::thread(&Client2Client::ValidationThreadFunction, this));
+  }
 }
 
 Client2Client::~Client2Client() {
-  valThread->join();
+  for (auto t : valThreads) {
+    t->join();
+  }
+  // valThread->join();
   delete valClient;
 }
 
@@ -195,6 +200,8 @@ void Client2Client::ValidationThreadFunction() {
     uint64_t curr_client_id = valInfo->txn_client_id;
     uint64_t curr_client_seq_num = valInfo->txn_client_seq_num;
     ValidationTransaction *valTxn = valInfo->valTxn;
+    std::cerr << std::this_thread::get_id() << " will validate for client " << curr_client_id 
+              << ", seq num " << curr_client_seq_num << std::endl;
 
     valClient->SetThreadValTxnId(curr_client_id, curr_client_seq_num);
 
