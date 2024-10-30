@@ -35,8 +35,7 @@
 
 #include <string>
 #include <vector>
-#include <map>
-#include <shared_mutex>
+#include <thread>
 
 #include "tbb/concurrent_hash_map.h"
 
@@ -71,10 +70,9 @@ class ValidationClient : public ::Client {
   // Abort all Get(s) and Put(s) since Begin().
   virtual void Abort(abort_callback acb, abort_timeout_callback atcb, uint32_t timeout) override;
 
-  // Set the current transaction client id (client that initiated)
-  void SetTxnClientId(uint64_t txn_client_id);
-  // Set the current transaction sequence number
-  void SetTxnClientSeqNum(uint64_t txn_client_seq_num);
+  // Set the current transaction id (client that initiated and seq num)
+  // associate transaction id with current thread id
+  void SetThreadValTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num);
 
   // check forwarded read result and fill one of the pending validation gets
   void ValidateForwardReadResult(const proto::ForwardReadResult &fwdReadResult);
@@ -101,16 +99,21 @@ class ValidationClient : public ::Client {
   // add (key, ts) to the readset of transaction txn_id
   void AddReadset(uint64_t txn_client_id, uint64_t txn_client_seq_num, const std::string &key, 
     const std::string &value, const Timestamp &ts);
+  // read from threadValTxnIds and set the passed in pointers to the current threads txn id 
+  void GetThreadValTxnId(uint64_t *txn_client_id, uint64_t *txn_client_seq_num);
   std::string ToTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num);
 
   // My own client ID
   uint64_t client_id;
   // parameters
   Parameters params;
-  // ID of client that initiated the transaction 
-  uint64_t txn_client_id;
-  // Ongoing transaction ID.
-  uint64_t txn_client_seq_num;
+  // // ID of client that initiated the transaction 
+  // uint64_t txn_client_id;
+  // // Ongoing transaction ID.
+  // uint64_t txn_client_seq_num;
+  // map from thread id to (txn_client_id, txn_client_seq_num) tracks what each thread is doing
+  typedef tbb::concurrent_hash_map<std::thread::id, std::pair<uint64_t, uint64_t>> threadValTxnIdsMap;
+  threadValTxnIdsMap threadValTxnIds;
   // Transactions yet to be validated, one of which is currently ongoing validation
   // map from (transaction client id, transaction client seq num) to validation transaction
   typedef tbb::concurrent_hash_map<std::string, proto::ValidationTxn *> pendingValTxnsMap;

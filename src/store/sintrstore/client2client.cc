@@ -196,8 +196,7 @@ void Client2Client::ValidationThreadFunction() {
     uint64_t curr_client_seq_num = valInfo->txn_client_seq_num;
     ValidationTransaction *valTxn = valInfo->valTxn;
 
-    valClient->SetTxnClientId(curr_client_id);
-    valClient->SetTxnClientSeqNum(curr_client_seq_num);
+    valClient->SetThreadValTxnId(curr_client_id, curr_client_seq_num);
 
     transaction_status_t result = valTxn->Validate(syncClient);
 

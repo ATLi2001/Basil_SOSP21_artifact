@@ -38,15 +38,22 @@ ValidationClient::~ValidationClient() {
 
 void ValidationClient::Begin(begin_callback bcb, begin_timeout_callback btcb,
     uint32_t timeout, bool retry, const std::string &txnState) {
-  // create validation transaction
-  proto::ValidationTxn *txn = new proto::ValidationTxn();
-  txn->set_client_id(txn_client_id);
-  txn->set_client_seq_num(txn_client_seq_num);
-  // insert into pendingValTxns map
+  uint64_t txn_client_id, txn_client_seq_num;
+  GetThreadValTxnId(&txn_client_id, &txn_client_seq_num);
   std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
+  // insert into pendingValTxns map
   pendingValTxnsMap::accessor a;
-  pendingValTxns.insert(a, txn_id);
-  a->second = txn;
+  const bool isNewKey = pendingValTxns.insert(a, txn_id);
+  if (isNewKey) {
+    // create validation transaction
+    proto::ValidationTxn *txn = new proto::ValidationTxn();
+    txn->set_client_id(txn_client_id);
+    txn->set_client_seq_num(txn_client_seq_num);
+    a->second = txn;
+  }
+  // else not a new key
+  // this means that some forwarded read result had already been registered
+  // so do not overwrite it
 
   bcb(txn_client_seq_num);
 }
@@ -66,18 +73,33 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
     gcb(status, key, value, ts);
   };
 
+  uint64_t txn_client_id, txn_client_seq_num;
+  GetThreadValTxnId(&txn_client_id, &txn_client_seq_num);
+
+  // first use accessor to prevent race conditions on pendingGets
+  // bad case is BufferGet returns false, but then before registering the pendingGet, 
+  // the corresponding ForwardReadResult appears and is processed 
+  std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
+  pendingGetsMap::accessor a;
+  const bool isNewKey = pendingGets.insert(a, txn_id);
+
+  // read locally in buffer
+  if (BufferGet(txn_client_id, txn_client_seq_num, key, vrcb)) {
+    Debug(
+      "ValidationClient::BufferGet for client id %lu, seq num %lu, on key %s", 
+      txn_client_id,
+      txn_client_seq_num,
+      BytesToHex(key, 16).c_str()
+    );
+    return;
+  }
+
   Debug(
-    "ValidationClient::Get for client id %lu, seq num %lu on key %s", 
+    "ValidationClient::Get registering PendingGet for client id %lu, seq num %lu on key %s", 
     txn_client_id, 
     txn_client_seq_num, 
     BytesToHex(key, 16).c_str()
   );
-
-  // read locally in buffer
-  if (BufferGet(txn_client_id, txn_client_seq_num, key, vrcb)) {
-    Debug("ValidationClient::BufferGet on key %s", BytesToHex(key, 16).c_str());
-    return;
-  }
 
   // otherwise have to wait for read results to get passed over
   PendingValidationGet *pendingGet = new PendingValidationGet(txn_client_id, txn_client_seq_num);
@@ -85,9 +107,6 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
   pendingGet->vrcb = vrcb;
   pendingGet->vrtcb = gtcb;
 
-  std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
-  pendingGetsMap::accessor a;
-  const bool isNewKey = pendingGets.insert(a, txn_id);
   if (isNewKey) {
     a->second = std::vector<PendingValidationGet *>();
   }
@@ -97,6 +116,8 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
 void ValidationClient::Put(const std::string &key, const std::string &value,
     put_callback pcb, put_timeout_callback ptcb,
     uint32_t timeout) {
+  uint64_t txn_client_id, txn_client_seq_num;
+  GetThreadValTxnId(&txn_client_id, &txn_client_seq_num);
   std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
 
   pendingValTxnsMap::accessor a;
@@ -120,11 +141,10 @@ void ValidationClient::Commit(commit_callback ccb, commit_timeout_callback ctcb,
 void ValidationClient::Abort(abort_callback acb, abort_timeout_callback atcb,
     uint32_t timeout) {}
 
-void ValidationClient::SetTxnClientId(uint64_t txn_client_id) {
-  this->txn_client_id = txn_client_id;
-}
-void ValidationClient::SetTxnClientSeqNum(uint64_t txn_client_seq_num) {
-  this->txn_client_seq_num = txn_client_seq_num;
+void ValidationClient::SetThreadValTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num) {
+  threadValTxnIdsMap::accessor a;
+  threadValTxnIds.insert(a, std::this_thread::get_id());
+  a->second = std::make_pair(txn_client_id, txn_client_seq_num);
 }
 
 void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult &fwdReadResult) {
@@ -208,6 +228,12 @@ proto::ValidationTxn *ValidationClient::GetCompletedValTxn(uint64_t txn_client_i
 
 bool ValidationClient::BufferGet(uint64_t txn_client_id, uint64_t txn_client_seq_num, 
     const std::string &key, validation_read_callback vrcb) {
+  Debug(
+    "BufferGet from client id %lu, seq num %lu for key %s", 
+    txn_client_id,
+    txn_client_seq_num,
+    BytesToHex(key, 16).c_str()
+  );
   std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
   pendingValTxnsMap::const_accessor a;
   if (!pendingValTxns.find(a, txn_id)) {
@@ -262,6 +288,13 @@ void ValidationClient::AddReadset(uint64_t txn_client_id, uint64_t txn_client_se
   read->set_key(key);
   ts.serialize(read->mutable_readtime());
 
+  Debug(
+    "AddReadset for client id %lu, seq num %lu, key %s", 
+    txn_client_id,
+    txn_client_seq_num,
+    BytesToHex(key, 16).c_str()
+  );
+
   // add to readValues for future BufferGets
   readValuesMap::accessor b;
   const bool isNewKeyReadValues = readValues.insert(b, txn_id);
@@ -271,6 +304,15 @@ void ValidationClient::AddReadset(uint64_t txn_client_id, uint64_t txn_client_se
   b->second[key] = value;
 }
 
+void ValidationClient::GetThreadValTxnId(uint64_t *txn_client_id, uint64_t *txn_client_seq_num) {
+  threadValTxnIdsMap::const_accessor a;
+  if (!threadValTxnIds.find(a, std::this_thread::get_id())) {
+    Panic("Current thread does not validate transactions");
+  }
+
+  *txn_client_id = a->second.first;
+  *txn_client_seq_num = a->second.second;
+}
 
 std::string ValidationClient::ToTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num) {
   return std::to_string(txn_client_id) + "_" + std::to_string(txn_client_seq_num);
