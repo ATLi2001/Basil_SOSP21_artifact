@@ -51,7 +51,7 @@ void StockLevel::SerializeTxnState(std::string &txnState) {
   std::string txn_name;
   txn_name.append(BENCHMARK_NAME);
   txn_name.push_back('_');
-  txn_name.append(GetBenchmarkTxnTypeName(TPCC_STOCK_LEVEL));
+  txn_name.append(GetBenchmarkTxnTypeName(TXN_STOCK_LEVEL));
   currTxnState.set_txn_name(txn_name);
 
   validation::proto::StockLevel curr_txn = validation::proto::StockLevel();

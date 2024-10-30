@@ -76,7 +76,7 @@ void NewOrder::SerializeTxnState(std::string &txnState) {
   std::string txn_name;
   txn_name.append(BENCHMARK_NAME);
   txn_name.push_back('_');
-  txn_name.append(GetBenchmarkTxnTypeName(TPCC_NEW_ORDER));
+  txn_name.append(GetBenchmarkTxnTypeName(TXN_NEW_ORDER));
   currTxnState.set_txn_name(txn_name);
 
   validation::proto::NewOrder curr_txn = validation::proto::NewOrder();

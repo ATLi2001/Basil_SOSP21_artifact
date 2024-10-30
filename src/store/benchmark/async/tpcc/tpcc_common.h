@@ -27,6 +27,7 @@
 #define TPCC_COMMON_H
 
 #include "lib/message.h"
+#include "store/benchmark/async/tpcc/tpcc_client.h"
 
 #include <string>
 
@@ -34,46 +35,38 @@ namespace tpcc {
 
 const std::string BENCHMARK_NAME = "tpcc";
 
-enum TPCC_TXN_TYPE {
-  TPCC_DELIVERY,
-  TPCC_NEW_ORDER,
-  TPCC_ORDER_STATUS,
-  TPCC_PAYMENT,
-  TPCC_STOCK_LEVEL
-};
-
-inline std::string GetBenchmarkTxnTypeName(TPCC_TXN_TYPE txn_type) {
+inline std::string GetBenchmarkTxnTypeName(TPCCTransactionType txn_type) {
   switch (txn_type) {
-    case TPCC_DELIVERY:
+    case TXN_DELIVERY:
       return "delivery";
-    case TPCC_NEW_ORDER:
+    case TXN_NEW_ORDER:
       return "new_order";
-    case TPCC_ORDER_STATUS:
+    case TXN_ORDER_STATUS:
       return "order_status";
-    case TPCC_PAYMENT:
+    case TXN_PAYMENT:
       return "payment";
-    case TPCC_STOCK_LEVEL:
+    case TXN_STOCK_LEVEL:
       return "stock_level";
     default:
       Panic("Received unexpected txn type: %d", txn_type);
   }
 }
 
-inline TPCC_TXN_TYPE GetBenchmarkTxnTypeEnum(std::string &txn_type) {
+inline TPCCTransactionType GetBenchmarkTxnTypeEnum(std::string &txn_type) {
   if (txn_type == "delivery") {
-    return TPCC_DELIVERY;
+    return TXN_DELIVERY;
   }
   else if (txn_type == "new_order") {
-    return TPCC_NEW_ORDER;
+    return TXN_NEW_ORDER;
   }
   else if (txn_type == "order_status") {
-    return TPCC_ORDER_STATUS;
+    return TXN_ORDER_STATUS;
   }
   else if (txn_type == "payment") {
-    return TPCC_PAYMENT;
+    return TXN_PAYMENT;
   }
   else if (txn_type == "stock_level") {
-    return TPCC_STOCK_LEVEL;
+    return TXN_STOCK_LEVEL;
   }
   else {
     Panic("Received unexpected txn type: %s", txn_type.c_str());

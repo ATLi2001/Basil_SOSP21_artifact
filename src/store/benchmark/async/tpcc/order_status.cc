@@ -61,7 +61,7 @@ void OrderStatus::SerializeTxnState(std::string &txnState) {
   std::string txn_name;
   txn_name.append(BENCHMARK_NAME);
   txn_name.push_back('_');
-  txn_name.append(GetBenchmarkTxnTypeName(TPCC_ORDER_STATUS));
+  txn_name.append(GetBenchmarkTxnTypeName(TXN_ORDER_STATUS));
   currTxnState.set_txn_name(txn_name);
 
   validation::proto::OrderStatus curr_txn = validation::proto::OrderStatus();

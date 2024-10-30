@@ -51,7 +51,7 @@ void Delivery::SerializeTxnState(std::string &txnState) {
   std::string txn_name;
   txn_name.append(BENCHMARK_NAME);
   txn_name.push_back('_');
-  txn_name.append(GetBenchmarkTxnTypeName(TPCC_DELIVERY));
+  txn_name.append(GetBenchmarkTxnTypeName(TXN_DELIVERY));
   currTxnState.set_txn_name(txn_name);
 
   validation::proto::Delivery curr_txn = validation::proto::Delivery();

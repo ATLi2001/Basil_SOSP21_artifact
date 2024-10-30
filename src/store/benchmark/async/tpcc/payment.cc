@@ -80,7 +80,7 @@ void Payment::SerializeTxnState(std::string &txnState) {
   std::string txn_name;
   txn_name.append(BENCHMARK_NAME);
   txn_name.push_back('_');
-  txn_name.append(GetBenchmarkTxnTypeName(TPCC_PAYMENT));
+  txn_name.append(GetBenchmarkTxnTypeName(TXN_PAYMENT));
   currTxnState.set_txn_name(txn_name);
 
   validation::proto::Payment curr_txn = validation::proto::Payment();
