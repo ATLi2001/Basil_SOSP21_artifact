@@ -139,7 +139,27 @@ void ValidationClient::Commit(commit_callback ccb, commit_timeout_callback ctcb,
 }
 
 void ValidationClient::Abort(abort_callback acb, abort_timeout_callback atcb,
-    uint32_t timeout) {}
+    uint32_t timeout) {
+  // on abort, clean up stored data
+  uint64_t txn_client_id, txn_client_seq_num;
+  GetThreadValTxnId(&txn_client_id, &txn_client_seq_num);
+  std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
+
+  pendingValTxnsMap::accessor a;
+  if (pendingValTxns.find(a, txn_id)) {
+    pendingValTxns.erase(a);
+  }
+  readValuesMap::accessor b;
+  if (readValues.find(b, txn_id)) {
+    readValues.erase(b);
+  }
+  pendingGetsMap::accessor c;
+  if (pendingGets.find(c, txn_id)) {
+    pendingGets.erase(c);
+  }
+
+  acb();
+}
 
 void ValidationClient::SetThreadValTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num) {
   threadValTxnIdsMap::accessor a;
