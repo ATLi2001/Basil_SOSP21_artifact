@@ -96,8 +96,9 @@ bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
   return true;
 }
 
-void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState) {
+void Client2Client::SendBeginValidateTxnMessage(uint64_t id, Endorsement *endorse, const std::string &txnState) {
   client_seq_num = id;
+  this->endorse = endorse;
 
   proto::BeginValidateTxnMessage beginValTxnMsg = proto::BeginValidateTxnMessage();
   beginValTxnMsg.set_client_id(client_id);
@@ -190,6 +191,8 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
     return;
   }
   Debug("HandleFinishValidateTxnMessage: from client %lu, for my seq num %lu", curr_client_id, valTxn.client_seq_num());
+
+  endorse->AddValidation(finishValTxnMsg);
 }
 
 void Client2Client::ValidationThreadFunction() {

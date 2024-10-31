@@ -117,6 +117,7 @@ Client::~Client()
       delete b;
   }
   delete c2client;
+  delete endorse;
   delete verifier;
 }
 
@@ -159,7 +160,10 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
     Debug("BEGIN [%lu]", client_seq_num);
 
     // begin sintr validation
-    c2client->SendBeginValidateTxnMessage(client_seq_num, txnState);
+    endorse = new Endorsement();
+    // just 1 for now
+    endorse->UpdateRequirement(1);
+    c2client->SendBeginValidateTxnMessage(client_seq_num, endorse, txnState);
 
     txn = proto::Transaction();
     txn.set_client_id(client_id);
@@ -684,6 +688,17 @@ void Client::WritebackProcessing(PendingRequest *req){
 }
 
 void Client::Writeback(PendingRequest *req) {
+
+  // if endorsement is not satisfied yet, add back to event loop
+  if (!endorse->IsSatisfied()) {
+    Debug("endorse not sat, Timer(Writeback)");
+    transport->Timer(0, [this, req]() {
+      Writeback(req);
+    });
+    return;
+  }
+  // TODO: handle endorsement
+  delete endorse;
 
   //total_writebacks++;
   Debug("WRITEBACK[%lu:%lu] result %s", client_id, req->id, req->decision ?  "ABORT" : "COMMIT");

@@ -46,6 +46,7 @@
 #include "store/sintrstore/shardclient.h"
 #include "store/sintrstore/client2client.h"
 #include "store/sintrstore/sintr-proto.pb.h"
+#include "store/sintrstore/endorsement.h"
 #include <sys/time.h>
 #include "store/common/stats.h"
 #include <unistd.h>
@@ -298,6 +299,9 @@ class Client : public ::Client {
   std::unordered_map<uint64_t, PendingRequest *> pendingReqs;
 
   std::unordered_map<uint64_t, uint64_t> pendingReqs_starttime;
+
+  // endorsements to collect for current transaction
+  Endorsement *endorse;
 
   inline static bool sortReadByKey(const ReadMessage &lhs, const ReadMessage &rhs) { return lhs.key() < rhs.key(); }
   inline static bool sortWriteByKey(const WriteMessage &lhs, const WriteMessage &rhs) { return lhs.key() < rhs.key(); }

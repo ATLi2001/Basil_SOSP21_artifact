@@ -47,6 +47,7 @@
 #include "store/sintrstore/common.h"
 #include "store/sintrstore/validation/validation_client.h"
 #include "store/sintrstore/validation/validation_parse_client.h"
+#include "store/sintrstore/endorsement.h"
 
 #include <map>
 #include <string>
@@ -72,7 +73,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
   // start up the sintr validation for current transaction id and name 
   // sends BeginValidateTxnMessage to peers
-  void SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState);
+  void SendBeginValidateTxnMessage(uint64_t id, Endorsement *endorse, const std::string &txnState);
 
   // forward server read reply to other peers
   void ForwardReadResult(const std::string &key, const std::string &value, 
@@ -122,6 +123,8 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   bool failureActive;
   // current transaction sequence number (to send to others)
   uint64_t client_seq_num;
+  // current endorsement object pointer so can inform client of received validations
+  Endorsement *endorse;
 
   // threads for validation
   std::vector<std::thread *> valThreads;
