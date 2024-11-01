@@ -341,6 +341,9 @@ DEFINE_string(indicus_read_dep, read_dep_args[0], "number of identical prepared"
     " to claim dependency (for Indicus)");
 DEFINE_validator(indicus_read_dep, &ValidateReadDep);
 
+// Sintr specific args
+DEFINE_bool(sintr_sign_finish_validation, false, "sintr sign finish validation message");
+
 /**
  * Experiment settings.
  */
@@ -614,6 +617,10 @@ int main(int argc, char **argv) {
       uint64_t timeDelta = (FLAGS_indicus_time_delta / 1000) << 32;
       timeDelta = timeDelta | (FLAGS_indicus_time_delta % 1000) * 1000;
 
+      sintrstore::SintrParameters sintr_params(
+        0, false,
+        FLAGS_sintr_sign_finish_validation
+      );
 
       sintrstore::Parameters params(FLAGS_indicus_sign_messages,
                                       FLAGS_indicus_validate_proofs, FLAGS_indicus_hash_digest,
@@ -631,7 +638,7 @@ int main(int argc, char **argv) {
 																			FLAGS_indicus_dispatchCallbacks,
 																			FLAGS_indicus_all_to_all_fb,
 																		  FLAGS_indicus_no_fallback, FLAGS_indicus_relayP1_timeout,
-																		  FLAGS_indicus_replica_gossip, 0);
+																		  FLAGS_indicus_replica_gossip, sintr_params);
       Debug("Starting new server object");
       server = new sintrstore::Server(config, FLAGS_group_idx,
                                         FLAGS_replica_idx, FLAGS_num_shards, FLAGS_num_groups, tport,

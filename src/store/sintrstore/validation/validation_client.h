@@ -74,8 +74,9 @@ class ValidationClient : public ::Client {
   // associate transaction id with current thread id
   void SetThreadValTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num);
 
-  // check forwarded read result and fill one of the pending validation gets
-  void ValidateForwardReadResult(const proto::ForwardReadResult &fwdReadResult);
+  // either fill one of the pending validation gets or put into readset for future validation get
+  void ProcessForwardReadResult(uint64_t txn_client_id, uint64_t txn_client_seq_num, 
+    const proto::ForwardReadResult &fwdReadResult);
 
   // return transaction for completed validation transaction
   proto::ValidationTxn *GetCompletedValTxn(uint64_t txn_client_id, uint64_t txn_client_seq_num);

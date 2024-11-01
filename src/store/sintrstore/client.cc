@@ -214,7 +214,7 @@ void Client::Get(const std::string &key, get_callback gcb,
         ReadMessage *read = txn.add_read_set();
         read->set_key(key);
         ts.serialize(read->mutable_readtime());
-        c2client->ForwardReadResult(key, val, ts, proof);
+        c2client->ForwardReadResultMessage(key, val, ts, proof);
       }
       if (hasDep) {
         *txn.add_deps() = dep;

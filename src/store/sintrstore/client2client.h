@@ -76,7 +76,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   void SendBeginValidateTxnMessage(uint64_t id, Endorsement *endorse, const std::string &txnState);
 
   // forward server read reply to other peers
-  void ForwardReadResult(const std::string &key, const std::string &value, 
+  void ForwardReadResultMessage(const std::string &key, const std::string &value, 
     const Timestamp &ts, const proto::CommittedProof *proof);
 
   void SetFailureFlag(bool f) {
@@ -106,9 +106,12 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   };
   
   void HandleBeginValidateTxnMessage(const TransportAddress &remote, const proto::BeginValidateTxnMessage &beginValTxnMsg);
-  void HandleForwardReadResult(const proto::ForwardReadResult &fwdReadResult);
+  void HandleForwardReadResultMessage(const proto::ForwardReadResultMessage &fwdReadResultMsg);
   void HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg);
   void ValidationThreadFunction();
+  bool ValidateHMACedMessage(const proto::SignedMessage &signedMessage, std::string &data);
+  // create an hmac from msg and place into signature
+  void CreateHMACedMessage(const ::google::protobuf::Message &msg, proto::SignedMessage& signedMessage);
 
   const uint64_t client_id; // Unique ID for this client.
   const uint64_t client_transport_id; // unique transport id for this client
@@ -133,9 +136,11 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   // concurrent queue of transactions to be validated, has blocking semantics for pop
   tbb::concurrent_bounded_queue<ValidationInfo *> validationQueue;
 
+  // for hmacs
+  std::unordered_map<uint64_t, std::string> sessionKeys;
 
   proto::BeginValidateTxnMessage beginValTxnMsg;
-  proto::ForwardReadResult fwdReadResult;
+  proto::ForwardReadResultMessage fwdReadResultMsg;
   proto::FinishValidateTxnMessage finishValTxnMsg;
   PingMessage ping;
 };

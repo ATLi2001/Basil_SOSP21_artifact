@@ -358,6 +358,18 @@ struct InjectFailure {
   uint32_t frequency;
 };
 
+// Sintr protocol specific parameters
+typedef struct SintrParameters {
+  const uint64_t maxValThreads; // maximum number of validation threads
+  const bool signFwdReadResults; // sign (and validate) forward read results
+  const bool signFinishValidation; // sign (and validate) finish validation messages
+
+  SintrParameters(uint64_t maxValThreads, bool signFwdReadResults, bool signFinishValidation) :
+    maxValThreads(maxValThreads), 
+    signFwdReadResults(signFwdReadResults), 
+    signFinishValidation(signFinishValidation) {}
+} SintrParameters;
+
 typedef struct Parameters {
   const bool signedMessages;
   const bool validateProofs;
@@ -388,7 +400,7 @@ typedef struct Parameters {
   const uint64_t relayP1_timeout;
   const bool replicaGossip;
 
-  const uint64_t maxValThreads;
+  const SintrParameters sintr_params;
 
   Parameters(bool signedMessages, bool validateProofs, bool hashDigest, bool verifyDeps,
     int signatureBatchSize, int64_t maxDepDepth, uint64_t readDepSize,
@@ -403,7 +415,7 @@ typedef struct Parameters {
     bool no_fallback,
     uint64_t relayP1_timeout,
     bool replicaGossip,
-    uint64_t maxValThreads) :
+    SintrParameters sintr_params) :
     signedMessages(signedMessages), validateProofs(validateProofs),
     hashDigest(hashDigest), verifyDeps(verifyDeps), signatureBatchSize(signatureBatchSize),
     maxDepDepth(maxDepDepth), readDepSize(readDepSize),
@@ -421,7 +433,7 @@ typedef struct Parameters {
     no_fallback(no_fallback),
     relayP1_timeout(relayP1_timeout),
     replicaGossip(replicaGossip),
-    maxValThreads(maxValThreads) { }
+    sintr_params(sintr_params) { }
 } Parameters;
 
 } // namespace sintrstore

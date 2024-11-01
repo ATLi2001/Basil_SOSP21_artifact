@@ -378,13 +378,19 @@ message BeginValidateTxnMessage {
 }
 
 message ForwardReadResult {
+  required bytes key = 1;
+  required bytes value = 2;
+  required TimestampMessage timestamp = 3;
+}
+
+message ForwardReadResultMessage {
   required uint64 client_id = 1;
   required uint64 client_seq_num = 2;
-  required bytes key = 3;
-  required bytes value = 4;
-  required TimestampMessage timestamp = 5;
-  optional CommittedProof proof = 6;
-  optional Signature signature = 7;
+  optional CommittedProof proof = 3;
+  oneof forward_one_of {
+    ForwardReadResult fwd_read_result = 4;
+    SignedMessage signed_fwd_read_result = 5;
+  }
 }
 
 // like the Transaction message type, but with less fields needed

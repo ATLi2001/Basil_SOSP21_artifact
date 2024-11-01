@@ -287,6 +287,8 @@ DEFINE_validator(indicus_inject_failure_type, &ValidateInjectFailureType);
 
 // Sintr specific args
 DEFINE_uint64(sintr_max_val_threads, 1, "sintr max number of validation threads");
+DEFINE_bool(sintr_sign_fwd_read_results, true, "sintr sign forward read results");
+DEFINE_bool(sintr_sign_finish_validation, false, "sintr sign finish validation message");
 
 DEFINE_bool(debug_stats, false, "record stats related to debugging");
 
@@ -1023,6 +1025,12 @@ int main(int argc, char **argv) {
 					std::cerr << "client_id = " << FLAGS_client_id << "thread_id = " << i << ". Failure enabled: "<< failure.enabled <<  std::endl;
 				failure.frequency = FLAGS_indicus_inject_failure_freq;
 
+        sintrstore::SintrParameters sintr_params(
+          FLAGS_sintr_max_val_threads,
+          FLAGS_sintr_sign_fwd_read_results,
+          FLAGS_sintr_sign_finish_validation
+        );
+
         sintrstore::Parameters params(FLAGS_indicus_sign_messages,
                                         FLAGS_indicus_validate_proofs, FLAGS_indicus_hash_digest,
                                         FLAGS_indicus_verify_deps, FLAGS_indicus_sig_batch,
@@ -1041,7 +1049,7 @@ int main(int argc, char **argv) {
 																			  FLAGS_indicus_no_fallback,
 																				FLAGS_indicus_relayP1_timeout,
 																			  false,
-                                        FLAGS_sintr_max_val_threads);
+                                        sintr_params);
 
         uint64_t client_transport_id = FLAGS_num_clients * FLAGS_client_id + i;
         client = new sintrstore::Client(config, clientId,

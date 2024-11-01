@@ -167,20 +167,15 @@ void ValidationClient::SetThreadValTxnId(uint64_t txn_client_id, uint64_t txn_cl
   a->second = std::make_pair(txn_client_id, txn_client_seq_num);
 }
 
-void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult &fwdReadResult) {
-  if (params.validateProofs) {
-
-  }
-
-  uint64_t curr_client_id = fwdReadResult.client_id();
-  uint64_t curr_client_seq_num = fwdReadResult.client_seq_num();
+void ValidationClient::ProcessForwardReadResult(uint64_t txn_client_id, uint64_t txn_client_seq_num, 
+    const proto::ForwardReadResult &fwdReadResult) {
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
   Timestamp curr_ts = Timestamp(fwdReadResult.timestamp());
   Debug(
-    "ValidateForwardReadResult from client id %lu, seq num %lu for key %s", 
-    curr_client_id,
-    curr_client_seq_num,
+    "ProcessForwardReadResult from client id %lu, seq num %lu for key %s", 
+    txn_client_id,
+    txn_client_seq_num,
     BytesToHex(curr_key, 16).c_str()
   );
 
@@ -188,17 +183,17 @@ void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult 
   // if forwarded read result is for a get that the validation transaction has not yet gotten to,
   // add it to the appropriate transaction readset
 
-  std::string curr_txn_id = ToTxnId(curr_client_id, curr_client_seq_num);
+  std::string curr_txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
 
   pendingGetsMap::accessor a;
   if (!pendingGets.find(a, curr_txn_id)) {
     Debug(
-      "ValidateForwardReadResult from client id %lu, seq num %lu, before txn_id in pendingGets registered for key %s", 
-      curr_client_id,
-      curr_client_seq_num,
+      "ProcessForwardReadResult from client id %lu, seq num %lu, before txn_id in pendingGets registered for key %s", 
+      txn_client_id,
+      txn_client_seq_num,
       BytesToHex(curr_key, 16).c_str()
     );
-    AddReadset(curr_client_id, curr_client_seq_num, curr_key, curr_value, curr_ts);
+    AddReadset(txn_client_id, txn_client_seq_num, curr_key, curr_value, curr_ts);
     return;
   }
 
@@ -209,18 +204,18 @@ void ValidationClient::ValidateForwardReadResult(const proto::ForwardReadResult 
   );
   if (reqs_itr == reqs->end()) {
     Debug(
-      "ValidateForwardReadResult from client id %lu, seq num %lu, before PendingGet registered for key %s", 
-      curr_client_id,
-      curr_client_seq_num,
+      "ProcessForwardReadResult from client id %lu, seq num %lu, before PendingGet registered for key %s", 
+      txn_client_id,
+      txn_client_seq_num,
       BytesToHex(curr_key, 16).c_str()
     );
-    AddReadset(curr_client_id, curr_client_seq_num, curr_key, curr_value, curr_ts);
+    AddReadset(txn_client_id, txn_client_seq_num, curr_key, curr_value, curr_ts);
     return;
   }
   // callback
   PendingValidationGet *req = *reqs_itr;
   req->ts = curr_ts;
-  req->vrcb(REPLY_OK, curr_client_id, curr_client_seq_num, req->key, curr_value, req->ts, true);
+  req->vrcb(REPLY_OK, txn_client_id, txn_client_seq_num, req->key, curr_value, req->ts, true);
 
   // remove from vector
   reqs->erase(reqs_itr);

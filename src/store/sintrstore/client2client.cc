@@ -50,7 +50,18 @@ Client2Client::Client2Client(transport::Configuration *config, Transport *transp
   valClient = new ValidationClient(client_id, params); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
   transport->Register(this, *config, group, client_transport_id); 
-  for (size_t i = 0; i < params.maxValThreads; i++) {
+
+  // assume these are somehow secretly shared before hand
+  uint64_t idx = client_transport_id;
+  for (uint64_t i = 0; i < config->n; i++) {
+    if (i > idx) {
+      sessionKeys[i] = std::string(8, (char) idx + 0x30) + std::string(8, (char) i + 0x30);
+    } else {
+      sessionKeys[i] = std::string(8, (char) i + 0x30) + std::string(8, (char) idx + 0x30);
+    }
+  }
+
+  for (size_t i = 0; i < params.sintr_params.maxValThreads; i++) {
     valThreads.push_back(new std::thread(&Client2Client::ValidationThreadFunction, this));
   }
 }
@@ -75,9 +86,9 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
     beginValTxnMsg.ParseFromString(data);
     HandleBeginValidateTxnMessage(remote, beginValTxnMsg);
   }
-  else if (type == fwdReadResult.GetTypeName()) {
-    fwdReadResult.ParseFromString(data);
-    HandleForwardReadResult(fwdReadResult);
+  else if (type == fwdReadResultMsg.GetTypeName()) {
+    fwdReadResultMsg.ParseFromString(data);
+    HandleForwardReadResultMessage(fwdReadResultMsg);
   }
   else if (type == finishValTxnMsg.GetTypeName()) {
     finishValTxnMsg.ParseFromString(data);
@@ -104,16 +115,6 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, Endorsement *endors
   beginValTxnMsg.set_client_id(client_id);
   beginValTxnMsg.set_client_seq_num(id);
   TxnState *protoTxnState = new TxnState();
-  // test data
-  // ::tpcc::validation::proto::Delivery delivery = ::tpcc::validation::proto::Delivery();
-  // delivery.set_w_id(0);
-  // delivery.set_d_id(0);
-  // delivery.set_o_carrier_id(0);
-  // delivery.set_ol_delivery_d(0);
-  // std::string deliveryStr;
-  // delivery.SerializeToString(&deliveryStr);
-  // protoTxnState->set_txn_name("tpcc_delivery");
-  // protoTxnState->set_txn_data(deliveryStr);
   protoTxnState->ParseFromString(txnState);
   beginValTxnMsg.set_allocated_txn_state(protoTxnState);
 
@@ -121,24 +122,32 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, Endorsement *endors
   transport->SendMessageToAll(this, beginValTxnMsg);
 }
 
-void Client2Client::ForwardReadResult(const std::string &key, const std::string &value, 
+void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, 
     const Timestamp &ts, const proto::CommittedProof *proof) {
+  proto::ForwardReadResultMessage fwdReadResultMsg = proto::ForwardReadResultMessage();
+  fwdReadResultMsg.set_client_id(client_id);
+  fwdReadResultMsg.set_client_seq_num(client_seq_num);
   proto::ForwardReadResult fwdReadResult = proto::ForwardReadResult();
-  fwdReadResult.set_client_id(client_id);
-  fwdReadResult.set_client_seq_num(client_seq_num);
   fwdReadResult.set_key(key);
   fwdReadResult.set_value(value);
-  // test data
-  // fwdReadResult.set_key("0");
-  // fwdReadResult.set_value("00");
   fwdReadResult.mutable_timestamp()->set_timestamp(ts.getTimestamp());
   fwdReadResult.mutable_timestamp()->set_id(ts.getID());
+
+  if (params.sintr_params.signFwdReadResults) {
+    proto::SignedMessage signedMsg;
+    CreateHMACedMessage(fwdReadResult, signedMsg);
+    *fwdReadResultMsg.mutable_signed_fwd_read_result() = signedMsg;
+  }
+  else {
+    *fwdReadResultMsg.mutable_fwd_read_result() = fwdReadResult;
+  }
+
   if (params.validateProofs) {
     if (proof == NULL) {
       Debug("Missing proof for client %lu, seq num %lu", client_id, client_seq_num);
       return;
     }
-    *fwdReadResult.mutable_proof() = *proof;
+    *fwdReadResultMsg.mutable_proof() = *proof;
   }
 
   Debug(
@@ -148,7 +157,7 @@ void Client2Client::ForwardReadResult(const std::string &key, const std::string 
     BytesToHex(key, 16).c_str(),
     BytesToHex(value, 16).c_str()
   );
-  transport->SendMessageToAll(this, fwdReadResult);
+  transport->SendMessageToAll(this, fwdReadResultMsg);
 }
 
 void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote, 
@@ -167,9 +176,33 @@ void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote
   validationQueue.push(valInfo);
 }
 
-void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdReadResult) {
-  uint64_t curr_client_id = fwdReadResult.client_id();
-  uint64_t curr_client_seq_num = fwdReadResult.client_seq_num();
+void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResultMessage &fwdReadResultMsg) {
+  uint64_t curr_client_id = fwdReadResultMsg.client_id();
+  uint64_t curr_client_seq_num = fwdReadResultMsg.client_seq_num();
+  proto::ForwardReadResult fwdReadResult;
+  if (params.sintr_params.signFwdReadResults) {
+    if (!fwdReadResultMsg.has_signed_fwd_read_result()) {
+      Debug(
+        "Missing signature on forwarded read result from client %lu, seq num %lu", 
+        curr_client_id, 
+        curr_client_seq_num
+      );
+      return;
+    }
+    std::string data;
+    if (!ValidateHMACedMessage(fwdReadResultMsg.signed_fwd_read_result(), data)) {
+      Debug(
+        "Invalid signature on forwarded read result from client %lu, seq num %lu", 
+        curr_client_id, 
+        curr_client_seq_num
+      );
+      return;
+    }
+    fwdReadResult.ParseFromString(data);
+  }
+  else {
+    fwdReadResult = fwdReadResultMsg.fwd_read_result();
+  }
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
   Debug(
@@ -179,8 +212,8 @@ void Client2Client::HandleForwardReadResult(const proto::ForwardReadResult &fwdR
     BytesToHex(curr_key, 16).c_str(),
     BytesToHex(curr_value, 16).c_str()
   );
-  // tell valClient about this readReply
-  valClient->ValidateForwardReadResult(fwdReadResult);
+  // tell valClient about this forwardedReadResult
+  valClient->ProcessForwardReadResult(curr_client_id, curr_client_seq_num, fwdReadResult);
 }
 
 void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg) {
@@ -226,6 +259,29 @@ void Client2Client::ValidationThreadFunction() {
     Debug("thread exiting for validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
   }
 }
+
+bool Client2Client::ValidateHMACedMessage(const proto::SignedMessage &signedMessage, std::string &data) {
+  data = signedMessage.data();
+  proto::HMACs hmacs;
+  hmacs.ParseFromString(signedMessage.signature());
+  return crypto::verifyHMAC(
+    signedMessage.data(), 
+    (*hmacs.mutable_hmacs())[client_transport_id], 
+    sessionKeys[signedMessage.process_id() % config->n]
+  );
+}
+
+void Client2Client::CreateHMACedMessage(const ::google::protobuf::Message &msg, proto::SignedMessage& signedMessage) {
+  std::string msgData = msg.SerializeAsString();
+  signedMessage.set_data(msgData);
+  signedMessage.set_process_id(client_transport_id);
+  proto::HMACs hmacs;
+  for (uint64_t i = 0; i < config->n; i++) {
+    (*hmacs.mutable_hmacs())[i] = crypto::HMAC(msgData, sessionKeys[i]);
+  }
+  signedMessage.set_signature(hmacs.SerializeAsString());
+}
+
 
 } // namespace sintrstore
 
