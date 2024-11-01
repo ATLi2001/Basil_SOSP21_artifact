@@ -324,6 +324,8 @@ bool operator!=(const proto::Write &pw1, const proto::Write &pw2);
 
 std::string TransactionDigest(const proto::Transaction &txn, bool hashDigest);
 
+std::string ValidationTxnDigest(const proto::ValidationTxn &txn, bool hashDigest);
+
 std::string BytesToHex(const std::string &bytes, size_t maxLength);
 
 bool TransactionsConflict(const proto::Transaction &a,
@@ -363,11 +365,14 @@ typedef struct SintrParameters {
   const uint64_t maxValThreads; // maximum number of validation threads
   const bool signFwdReadResults; // sign (and validate) forward read results
   const bool signFinishValidation; // sign (and validate) finish validation messages
+  const bool hashValDigest; // use hash function to compute validation txn digest
 
-  SintrParameters(uint64_t maxValThreads, bool signFwdReadResults, bool signFinishValidation) :
+  SintrParameters(uint64_t maxValThreads, bool signFwdReadResults, bool signFinishValidation,
+    bool hashValDigest) :
     maxValThreads(maxValThreads), 
     signFwdReadResults(signFwdReadResults), 
-    signFinishValidation(signFinishValidation) {}
+    signFinishValidation(signFinishValidation),
+    hashValDigest(hashValDigest) {}
 } SintrParameters;
 
 typedef struct Parameters {

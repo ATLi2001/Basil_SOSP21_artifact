@@ -1830,6 +1830,45 @@ std::string TransactionDigest(const proto::Transaction &txn, bool hashDigest) {
   }
 }
 
+std::string ValidationTxnDigest(const proto::ValidationTxn &txn, bool hashDigest) {
+  if (hashDigest) {
+    blake3_hasher hasher;
+    blake3_hasher_init(&hasher);
+
+    std::string digest(BLAKE3_OUT_LEN, 0);
+
+    uint64_t client_id = txn.client_id();
+    uint64_t client_seq_num = txn.client_seq_num();
+
+    blake3_hasher_update(&hasher, (unsigned char *) &client_id, sizeof(client_id));
+    blake3_hasher_update(&hasher, (unsigned char *) &client_seq_num, sizeof(client_seq_num));
+
+    for (const auto &read : txn.read_set()) {
+      uint64_t readtimeId = read.readtime().id();
+      uint64_t readtimeTs = read.readtime().timestamp();
+      blake3_hasher_update(&hasher, (unsigned char *) &read.key()[0], read.key().length());
+      blake3_hasher_update(&hasher, (unsigned char *) &readtimeId,
+          sizeof(read.readtime().id()));
+      blake3_hasher_update(&hasher, (unsigned char *) &readtimeTs,
+          sizeof(read.readtime().timestamp()));
+    }
+    for (const auto &write : txn.write_set()) {
+      blake3_hasher_update(&hasher, (unsigned char *) &write.key()[0], write.key().length());
+      blake3_hasher_update(&hasher, (unsigned char *) &write.value()[0], write.value().length());
+    }
+
+    blake3_hasher_finalize(&hasher, (unsigned char *) &digest[0], BLAKE3_OUT_LEN);
+
+    return digest;
+  } else {
+    char digestChar[16];
+    *reinterpret_cast<uint64_t *>(digestChar) = txn.client_id();
+    *reinterpret_cast<uint64_t *>(digestChar + 8) = txn.client_seq_num();
+    return std::string(digestChar, 16);
+  }
+}
+
+
 std::string BytesToHex(const std::string &bytes, size_t maxLength) {
   static const char digits[] = "0123456789abcdef";
   std::string hex;

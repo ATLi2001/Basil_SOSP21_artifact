@@ -343,6 +343,7 @@ DEFINE_validator(indicus_read_dep, &ValidateReadDep);
 
 // Sintr specific args
 DEFINE_bool(sintr_sign_finish_validation, false, "sintr sign finish validation message");
+DEFINE_bool(sintr_hash_validation_digest, false, "sintr hash to compute validation txn digest");
 
 /**
  * Experiment settings.
@@ -619,7 +620,8 @@ int main(int argc, char **argv) {
 
       sintrstore::SintrParameters sintr_params(
         0, false,
-        FLAGS_sintr_sign_finish_validation
+        FLAGS_sintr_sign_finish_validation,
+        FLAGS_sintr_hash_validation_digest
       );
 
       sintrstore::Parameters params(FLAGS_indicus_sign_messages,
