@@ -98,6 +98,8 @@ DEFINE_uint64(group_idx, 0, "index of the group to which this replica belongs");
 DEFINE_uint64(num_groups, 1, "number of replica groups in the system");
 DEFINE_uint64(num_shards, 1, "number of shards in the system");
 DEFINE_bool(debug_stats, false, "record stats related to debugging");
+DEFINE_uint64(num_client_hosts, 0, "total number of client processes");
+DEFINE_uint64(num_client_threads, 1, "total number of threads per client process");
 
 DEFINE_bool(rw_or_retwis, true, "true for rw, false for retwis");
 const std::string protocol_args[] = {
@@ -342,8 +344,8 @@ DEFINE_string(indicus_read_dep, read_dep_args[0], "number of identical prepared"
 DEFINE_validator(indicus_read_dep, &ValidateReadDep);
 
 // Sintr specific args
-DEFINE_bool(sintr_sign_finish_validation, false, "sintr sign finish validation message");
-DEFINE_bool(sintr_hash_validation_digest, false, "sintr hash to compute validation txn digest");
+DEFINE_bool(sintr_sign_finish_validation, true, "sintr sign finish validation message");
+DEFINE_bool(sintr_hash_validation_digest, true, "sintr hash to compute validation txn digest");
 
 /**
  * Experiment settings.
@@ -521,7 +523,19 @@ int main(int argc, char **argv) {
   default:
     throw "unimplemented";
   }
-  KeyManager keyManager(FLAGS_indicus_key_path, keyType, true);
+
+  //////////
+
+  uint64_t replica_total = FLAGS_num_shards * config.n;
+  uint64_t client_total = FLAGS_num_client_hosts * FLAGS_num_client_threads;
+  Notice("config n: %d. num_shards: %d. replica_total: %d",config.n, FLAGS_num_shards, replica_total);
+  
+  KeyManager keyManager(FLAGS_indicus_key_path, keyType, true, replica_total, client_total, FLAGS_num_client_hosts);
+ 
+  bool key_free_protocol = (proto == PROTO_TAPIR); //Note: indicus_codebase.py does not set the key path for PG
+  if(!key_free_protocol){ //temp hack
+    keyManager.PreLoadPubKeys(true);
+  }
 
   switch (proto) {
   case PROTO_TAPIR: {

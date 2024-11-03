@@ -1830,7 +1830,7 @@ std::string TransactionDigest(const proto::Transaction &txn, bool hashDigest) {
   }
 }
 
-std::string ValidationTxnDigest(const proto::ValidationTxn &txn, bool hashDigest) {
+std::string ValidationDigest(const proto::ValidationTxn &txn, bool hashDigest) {
   if (hashDigest) {
     blake3_hasher hasher;
     blake3_hasher_init(&hasher);

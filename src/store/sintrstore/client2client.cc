@@ -227,12 +227,16 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
       return;
     }
     proto::SignedMessage signedMsg = finishValTxnMsg.signed_validation_txn_digest();
-    if (!verifier->Verify(keyManager->GetPublicKey(signedMsg.process_id()), 
-        signedMsg.data(), signedMsg.signature())) {
+    // TODO: switch this out with verifier
+    if (!crypto::Verify(keyManager->GetPublicKey(keyManager->GetClientKeyId(signedMsg.process_id())), 
+        &signedMsg.data()[0], signedMsg.data().length(), &signedMsg.signature()[0])) {
       Debug("Invalid signature on validation txn digest sent from client %lu", peer_client_id);
       return;
     }
-    valTxnDigest.ParseFromString(signedMsg.data());
+    if (!valTxnDigest.ParseFromString(signedMsg.data())) {
+      Debug("Invalid serialization of validation txn digest sent from client %lu", peer_client_id);
+      return;
+    }
   }
   else {
     valTxnDigest = finishValTxnMsg.validation_txn_digest();
@@ -271,7 +275,7 @@ void Client2Client::ValidationThreadFunction() {
       finishValTxnMsg.set_client_id(client_id);
 
       // only send over digest, not actual contents
-      std::string digest = ValidationTxnDigest(*txn, params.sintr_params.hashValDigest);
+      std::string digest = ValidationDigest(*txn, params.sintr_params.hashValDigest);
       proto::ValidationTxnDigest valTxnDigest = proto::ValidationTxnDigest(); 
       valTxnDigest.set_client_id(curr_client_id);
       valTxnDigest.set_client_seq_num(curr_client_seq_num);
@@ -280,7 +284,12 @@ void Client2Client::ValidationThreadFunction() {
       if (params.sintr_params.signFinishValidation) {
         // sign the digest
         proto::SignedMessage signedMessage;
-        SignMessage(&valTxnDigest, keyManager->GetPrivateKey(client_transport_id), client_transport_id, &signedMessage);
+        SignMessage(
+          &valTxnDigest, 
+          keyManager->GetPrivateKey(keyManager->GetClientKeyId(client_transport_id)), 
+          client_transport_id, 
+          &signedMessage
+        );
         *finishValTxnMsg.mutable_signed_validation_txn_digest() = signedMessage;
       }
       else {

@@ -324,7 +324,7 @@ bool operator!=(const proto::Write &pw1, const proto::Write &pw2);
 
 std::string TransactionDigest(const proto::Transaction &txn, bool hashDigest);
 
-std::string ValidationTxnDigest(const proto::ValidationTxn &txn, bool hashDigest);
+std::string ValidationDigest(const proto::ValidationTxn &txn, bool hashDigest);
 
 std::string BytesToHex(const std::string &bytes, size_t maxLength);
 

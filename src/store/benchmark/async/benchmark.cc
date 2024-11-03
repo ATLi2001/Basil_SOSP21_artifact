@@ -288,7 +288,7 @@ DEFINE_validator(indicus_inject_failure_type, &ValidateInjectFailureType);
 // Sintr specific args
 DEFINE_uint64(sintr_max_val_threads, 1, "sintr max number of validation threads");
 DEFINE_bool(sintr_sign_fwd_read_results, true, "sintr sign forward read results");
-DEFINE_bool(sintr_sign_finish_validation, false, "sintr sign finish validation message");
+DEFINE_bool(sintr_sign_finish_validation, true, "sintr sign finish validation message");
 DEFINE_bool(sintr_hash_validation_digest, true, "sintr hash to compute validation txn digest");
 
 DEFINE_bool(debug_stats, false, "record stats related to debugging");
@@ -412,7 +412,7 @@ DEFINE_uint64(cooldown_secs, 5, "time (in seconds) to cool down system after"
     " recording stats");
 DEFINE_uint64(tput_interval, 0, "time (in seconds) between throughput"
     " measurements");
-DEFINE_uint64(num_clients, 1, "number of clients to run in this process");
+DEFINE_uint64(num_client_threads, 1, "number of client threads to run on each process");
 DEFINE_uint64(num_client_hosts, 1, "number of client processes across all nodes and servers");
 DEFINE_uint64(num_requests, -1, "number of requests (transactions) per"
     " client");
@@ -779,7 +779,7 @@ int main(int argc, char **argv) {
 
   bench_done_callback bdcb = [&]() {
     ++clientsDone;
-    if (clientsDone == FLAGS_num_clients) {
+    if (clientsDone == FLAGS_num_client_threads) {
       Latency_t sum;
       _Latency_Init(&sum, "total");
       for (unsigned int i = 0; i < benchClients.size(); i++) {
@@ -844,7 +844,11 @@ int main(int argc, char **argv) {
   default:
     throw "unimplemented";
   }
-  KeyManager* keyManager = new KeyManager(FLAGS_indicus_key_path, keyType, true);
+
+  uint64_t replica_total = FLAGS_num_shards * config->n;
+  uint64_t client_total = FLAGS_num_client_hosts * FLAGS_num_client_threads;
+
+  KeyManager *keyManager = new KeyManager(FLAGS_indicus_key_path, keyType, true, replica_total, client_total, FLAGS_num_client_hosts);
 
   if (closestReplicas.size() > 0 && closestReplicas.size() != static_cast<size_t>(config->n)) {
     std::cerr << "If specifying closest replicas, must specify all "
@@ -853,12 +857,12 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  if (FLAGS_num_clients > (1 << 6)) {
+  if (FLAGS_num_client_threads > (1 << 6)) {
     std::cerr << "Only support up to " << (1 << 6) << " clients in one process." << std::endl;
     return 1;
   }
 
-  for (size_t i = 0; i < FLAGS_num_clients; i++) {
+  for (size_t i = 0; i < FLAGS_num_client_threads; i++) {
     Client *client = nullptr;
     AsyncClient *asyncClient = nullptr;
     SyncClient *syncClient = nullptr;
@@ -932,7 +936,7 @@ int main(int argc, char **argv) {
 				//TODO: WARNING: This is a hack based on 72 total clients --> pass total_clients down as flag.
 				//failure.enabled = FLAGS_client_id < floor(72 * FLAGS_indicus_inject_failure_proportion / 100);
 				//	std::cerr << "client_id = " << FLAGS_client_id << " < ?" << (72* FLAGS_indicus_inject_failure_proportion/100) << ". Failure enabled: "<< failure.enabled <<  std::endl;
-				failure.enabled = FLAGS_num_client_hosts * i + FLAGS_client_id < floor(FLAGS_num_client_hosts * FLAGS_num_clients * FLAGS_indicus_inject_failure_proportion / 100);
+				failure.enabled = FLAGS_num_client_hosts * i + FLAGS_client_id < floor(FLAGS_num_client_hosts * FLAGS_num_client_threads * FLAGS_indicus_inject_failure_proportion / 100);
 					std::cerr << "client_id = " << FLAGS_client_id << "thread_id = " << i << ". Failure enabled: "<< failure.enabled <<  std::endl;
 				failure.frequency = FLAGS_indicus_inject_failure_freq;
 
@@ -1022,7 +1026,7 @@ int main(int argc, char **argv) {
 				//TODO: WARNING: This is a hack based on 72 total clients --> pass total_clients down as flag.
 				//failure.enabled = FLAGS_client_id < floor(72 * FLAGS_indicus_inject_failure_proportion / 100);
 				//	std::cerr << "client_id = " << FLAGS_client_id << " < ?" << (72* FLAGS_indicus_inject_failure_proportion/100) << ". Failure enabled: "<< failure.enabled <<  std::endl;
-				failure.enabled = FLAGS_num_client_hosts * i + FLAGS_client_id < floor(FLAGS_num_client_hosts * FLAGS_num_clients * FLAGS_indicus_inject_failure_proportion / 100);
+				failure.enabled = FLAGS_num_client_hosts * i + FLAGS_client_id < floor(FLAGS_num_client_hosts * FLAGS_num_client_threads * FLAGS_indicus_inject_failure_proportion / 100);
 					std::cerr << "client_id = " << FLAGS_client_id << "thread_id = " << i << ". Failure enabled: "<< failure.enabled <<  std::endl;
 				failure.frequency = FLAGS_indicus_inject_failure_freq;
 
@@ -1053,7 +1057,7 @@ int main(int argc, char **argv) {
 																			  false,
                                         sintr_params);
 
-        uint64_t client_transport_id = FLAGS_num_clients * FLAGS_client_id + i;
+        uint64_t client_transport_id = FLAGS_num_client_threads * FLAGS_client_id + i;
         client = new sintrstore::Client(config, clientId,
                                           FLAGS_num_shards,
                                           FLAGS_num_groups, closestReplicas, FLAGS_ping_replicas, tport, part,
