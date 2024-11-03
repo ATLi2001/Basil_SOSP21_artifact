@@ -243,12 +243,6 @@ proto::ValidationTxn *ValidationClient::GetCompletedValTxn(uint64_t txn_client_i
 
 bool ValidationClient::BufferGet(uint64_t txn_client_id, uint64_t txn_client_seq_num, 
     const std::string &key, validation_read_callback vrcb) {
-  Debug(
-    "BufferGet from client id %lu, seq num %lu for key %s", 
-    txn_client_id,
-    txn_client_seq_num,
-    BytesToHex(key, 16).c_str()
-  );
   std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
   pendingValTxnsMap::const_accessor a;
   if (!pendingValTxns.find(a, txn_id)) {
@@ -302,13 +296,6 @@ void ValidationClient::AddReadset(uint64_t txn_client_id, uint64_t txn_client_se
   ReadMessage *read = txn->add_read_set();
   read->set_key(key);
   ts.serialize(read->mutable_readtime());
-
-  Debug(
-    "AddReadset for client id %lu, seq num %lu, key %s", 
-    txn_client_id,
-    txn_client_seq_num,
-    BytesToHex(key, 16).c_str()
-  );
 
   // add to readValues for future BufferGets
   readValuesMap::accessor b;

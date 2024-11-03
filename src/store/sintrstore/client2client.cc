@@ -144,7 +144,7 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
 
   if (params.validateProofs) {
     if (proof == NULL) {
-      Debug("Missing proof for client %lu, seq num %lu", client_id, client_seq_num);
+      Debug("Missing proof for client id %lu, seq num %lu", client_id, client_seq_num);
       return;
     }
     *fwdReadResultMsg.mutable_proof() = *proof;
@@ -166,7 +166,7 @@ void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote
   uint64_t curr_client_seq_num = beginValTxnMsg.client_seq_num();
   TxnState txnState = beginValTxnMsg.txn_state();
   Debug(
-    "HandleBeginValidateTxnMessage: from client %lu, seq num %lu", 
+    "HandleBeginValidateTxnMessage: from client id %lu, seq num %lu", 
     curr_client_id, 
     curr_client_seq_num
   );
@@ -183,7 +183,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
   if (params.sintr_params.signFwdReadResults) {
     if (!fwdReadResultMsg.has_signed_fwd_read_result()) {
       Debug(
-        "Missing signature on forwarded read result from client %lu, seq num %lu", 
+        "Missing signature on forwarded read result from client id %lu, seq num %lu", 
         curr_client_id, 
         curr_client_seq_num
       );
@@ -192,7 +192,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
     std::string data;
     if (!ValidateHMACedMessage(fwdReadResultMsg.signed_fwd_read_result(), data)) {
       Debug(
-        "Invalid signature on forwarded read result from client %lu, seq num %lu", 
+        "Invalid signature on forwarded read result from client id %lu, seq num %lu", 
         curr_client_id, 
         curr_client_seq_num
       );
@@ -206,7 +206,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
   Debug(
-    "HandleForwardReadResult: from client %lu, seq num %lu, key %s, value %s", 
+    "HandleForwardReadResult: from client id %lu, seq num %lu, key %s, value %s", 
     curr_client_id, 
     curr_client_seq_num,
     BytesToHex(curr_key, 16).c_str(),
@@ -223,18 +223,18 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
   if (params.sintr_params.signFinishValidation) {
     // verify signature
     if (!finishValTxnMsg.has_signed_validation_txn_digest()) {
-      Debug("Missing signed validation txn digest sent from client %lu", peer_client_id);
+      Debug("Missing signed validation txn digest sent from client id %lu", peer_client_id);
       return;
     }
     proto::SignedMessage signedMsg = finishValTxnMsg.signed_validation_txn_digest();
     // TODO: switch this out with verifier
     if (!crypto::Verify(keyManager->GetPublicKey(keyManager->GetClientKeyId(signedMsg.process_id())), 
         &signedMsg.data()[0], signedMsg.data().length(), &signedMsg.signature()[0])) {
-      Debug("Invalid signature on validation txn digest sent from client %lu", peer_client_id);
+      Debug("Invalid signature on validation txn digest sent from client id %lu", peer_client_id);
       return;
     }
     if (!valTxnDigest.ParseFromString(signedMsg.data())) {
-      Debug("Invalid serialization of validation txn digest sent from client %lu", peer_client_id);
+      Debug("Invalid serialization of validation txn digest sent from client id %lu", peer_client_id);
       return;
     }
   }
@@ -244,10 +244,10 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
 
   uint64_t intended_client_id = valTxnDigest.client_id();
   if (intended_client_id != client_id) {
-    Debug("Received unexpected FinishValidationTxnMessage. Intended for client %lu, I am client %lu", intended_client_id, client_id);
+    Debug("Received unexpected FinishValidationTxnMessage. Intended for client id %lu, I am client id %lu", intended_client_id, client_id);
     return;
   }
-  Debug("HandleFinishValidateTxnMessage: from client %lu, for my seq num %lu", peer_client_id, valTxnDigest.client_seq_num());
+  Debug("HandleFinishValidateTxnMessage: from client id %lu, for my seq num %lu", peer_client_id, valTxnDigest.client_seq_num());
 
   endorse->AddValidation(finishValTxnMsg);
 }
@@ -268,7 +268,7 @@ void Client2Client::ValidationThreadFunction() {
     transaction_status_t result = valTxn->Validate(syncClient);
 
     if (result == COMMITTED) {
-      Debug("Completed validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
+      Debug("Completed validation for client id %lu, seq num %lu", curr_client_id, curr_client_seq_num);
       proto::ValidationTxn *txn = valClient->GetCompletedValTxn(curr_client_id, curr_client_seq_num);
 
       proto::FinishValidateTxnMessage finishValTxnMsg = proto::FinishValidateTxnMessage();
@@ -301,7 +301,7 @@ void Client2Client::ValidationThreadFunction() {
     }
 
     delete valInfo;
-    Debug("thread exiting for validation for client %lu, seq num %lu", curr_client_id, curr_client_seq_num);
+    Debug("thread exiting for validation for client id %lu, seq num %lu", curr_client_id, curr_client_seq_num);
   }
 }
 
