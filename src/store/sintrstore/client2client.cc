@@ -39,25 +39,26 @@
 
 namespace sintrstore {
 
-Client2Client::Client2Client(transport::Configuration *config, Transport *transport,
+Client2Client::Client2Client(transport::Configuration *config, transport::Configuration *clients_config, Transport *transport,
       uint64_t client_id, int group, bool pingClients,
-      Parameters params, KeyManager *keyManager,
+      Parameters params, KeyManager *keyManager, Verifier *verifier,
       TrueTime &timeServer, uint64_t client_transport_id) :
-      PingInitiator(this, transport, config->n),
-      client_id(client_id), client_transport_id(client_transport_id), transport(transport), config(config), group(group),
-      timeServer(timeServer), pingClients(pingClients), params(params),
-      keyManager(keyManager) {
+      PingInitiator(this, transport, clients_config->n),
+      client_id(client_id), client_transport_id(client_transport_id), 
+      transport(transport), config(config), clients_config(clients_config),
+      group(group), timeServer(timeServer), pingClients(pingClients), params(params),
+      keyManager(keyManager), verifier(verifier) {
   
   // separate verifier from main client instance
-  verifier = new BasicVerifier(transport);
+  clients_verifier = new BasicVerifier(transport);
 
   valClient = new ValidationClient(client_id, params); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
-  transport->Register(this, *config, group, client_transport_id); 
+  transport->Register(this, *clients_config, group, client_transport_id); 
 
   // assume these are somehow secretly shared before hand
   uint64_t idx = client_transport_id;
-  for (uint64_t i = 0; i < config->n; i++) {
+  for (uint64_t i = 0; i < clients_config->n; i++) {
     if (i > idx) {
       sessionKeys[i] = std::string(8, (char) idx + 0x30) + std::string(8, (char) i + 0x30);
     } else {
@@ -126,8 +127,8 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, Endorsement *endors
   transport->SendMessageToAll(this, beginValTxnMsg);
 }
 
-void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, 
-    const Timestamp &ts, const proto::CommittedProof *proof) {
+void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
+    const proto::CommittedProof &proof, const proto::SignedMessage &signedWrite, const proto::Dependency &dep) {
   proto::ForwardReadResultMessage fwdReadResultMsg = proto::ForwardReadResultMessage();
   fwdReadResultMsg.set_client_id(client_id);
   fwdReadResultMsg.set_client_seq_num(client_seq_num);
@@ -146,12 +147,21 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
     *fwdReadResultMsg.mutable_fwd_read_result() = fwdReadResult;
   }
 
-  if (params.validateProofs) {
-    if (proof == NULL) {
-      Debug("Missing proof for client id %lu, seq num %lu", client_id, client_seq_num);
-      return;
+  if (params.validateProofs && params.signedMessages) {
+    if (proof.IsInitialized() && signedWrite.IsInitialized()) {
+      *fwdReadResultMsg.mutable_proof() = proof;
+      *fwdReadResultMsg.mutable_signed_write() = signedWrite;
     }
-    *fwdReadResultMsg.mutable_proof() = *proof;
+    if (proof.IsInitialized() != signedWrite.IsInitialized()) {
+      Debug("proof and signed write mismatch on client id %lu, seq num %lu", client_id, client_seq_num);
+    }
+    // if the forwarded read result is based on a prepared (not committed) txn
+    // then it could be ok to have no proof and corresponding signature
+  }
+
+  // this will contain the prepared txn dependency
+  if (dep.IsInitialized()) {
+    *fwdReadResultMsg.mutable_dep() = dep;
   }
 
   Debug(
@@ -185,9 +195,10 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
   uint64_t curr_client_seq_num = fwdReadResultMsg.client_seq_num();
   proto::ForwardReadResult fwdReadResult;
   if (params.sintr_params.signFwdReadResults) {
+    // first check client signature
     if (!fwdReadResultMsg.has_signed_fwd_read_result()) {
       Debug(
-        "Missing signature on forwarded read result from client id %lu, seq num %lu", 
+        "Missing client signature on forwarded read result from client id %lu, seq num %lu", 
         curr_client_id, 
         curr_client_seq_num
       );
@@ -196,13 +207,78 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
     std::string data;
     if (!ValidateHMACedMessage(fwdReadResultMsg.signed_fwd_read_result(), data)) {
       Debug(
-        "Invalid signature on forwarded read result from client id %lu, seq num %lu", 
+        "Invalid client signature on forwarded read result from client id %lu, seq num %lu", 
         curr_client_id, 
         curr_client_seq_num
       );
       return;
     }
     fwdReadResult.ParseFromString(data);
+
+    // if has dependency, then this is based on a prepared txn
+    if (fwdReadResultMsg.has_dep()) {
+      if (params.validateProofs && params.signedMessages && params.verifyDeps) {
+        if (!ValidateDependency(fwdReadResultMsg.dep(), config, params.readDepSize, 
+            keyManager, verifier)) {
+          Debug(
+            "Invalid dependency on forwarded read result from client id %lu, seq num %lu",
+            curr_client_id, 
+            curr_client_seq_num
+          );
+          return;
+        }
+      }
+    } 
+    else {
+      // otherwise can check committed proof and signature
+
+      if (params.validateProofs && params.signedMessages) {
+        // check server signature
+        if (!fwdReadResultMsg.has_signed_write()) {
+          Debug(
+            "Missing server signature on forwarded read result from client id %lu, seq num %lu", 
+            curr_client_id, 
+            curr_client_seq_num
+          );
+          return;
+        }
+
+        proto::SignedMessage signedWrite = fwdReadResultMsg.signed_write();
+        if (!verifier->Verify(keyManager->GetPublicKey(signedWrite.process_id()),
+            signedWrite.data(), signedWrite.signature())) {
+          Debug(
+            "Invalid server signature on forwarded read result from client id %lu, seq num %lu", 
+            curr_client_id, 
+            curr_client_seq_num
+          );
+          return;
+        }
+
+        proto::Write write;
+        write.ParseFromString(signedWrite.data());
+
+        // check committed proof
+        if (!fwdReadResultMsg.has_proof()) {
+          Debug(
+            "Missing committed value proof for forwarded read result from client id %lu, seq num %lu",
+            curr_client_id,
+            curr_client_seq_num
+          );
+        }
+        
+        std::string committedTxnDigest = TransactionDigest(fwdReadResultMsg.proof().txn(), params.hashDigest);
+        if (!ValidateTransactionWrite(fwdReadResultMsg.proof(), &committedTxnDigest,
+            fwdReadResult.key(), write.committed_value(), write.committed_timestamp(),
+            config, params.signedMessages, keyManager, verifier)) {
+          Debug(
+            "Failed to validate committed value for forwarded read result from client id %lu, seq num %lu",
+            curr_client_id,
+            curr_client_seq_num
+          );
+          return;
+        }
+      }
+    }
   }
   else {
     fwdReadResult = fwdReadResultMsg.fwd_read_result();
@@ -231,7 +307,7 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
       return;
     }
     proto::SignedMessage signedMsg = finishValTxnMsg.signed_validation_txn_digest();
-    if(!verifier->Verify(keyManager->GetPublicKey(keyManager->GetClientKeyId(signedMsg.process_id())),
+    if(!clients_verifier->Verify(keyManager->GetPublicKey(keyManager->GetClientKeyId(signedMsg.process_id())),
         signedMsg.data(), signedMsg.signature())) {
       Debug("Invalid signature on validation txn digest sent from client id %lu", peer_client_id);
       return;
@@ -315,7 +391,7 @@ bool Client2Client::ValidateHMACedMessage(const proto::SignedMessage &signedMess
   return crypto::verifyHMAC(
     signedMessage.data(), 
     (*hmacs.mutable_hmacs())[client_transport_id], 
-    sessionKeys[signedMessage.process_id() % config->n]
+    sessionKeys[signedMessage.process_id() % clients_config->n]
   );
 }
 
@@ -324,7 +400,7 @@ void Client2Client::CreateHMACedMessage(const ::google::protobuf::Message &msg, 
   signedMessage.set_data(msgData);
   signedMessage.set_process_id(client_transport_id);
   proto::HMACs hmacs;
-  for (uint64_t i = 0; i < config->n; i++) {
+  for (uint64_t i = 0; i < clients_config->n; i++) {
     (*hmacs.mutable_hmacs())[i] = crypto::HMAC(msgData, sessionKeys[i]);
   }
   signedMessage.set_signature(hmacs.SerializeAsString());

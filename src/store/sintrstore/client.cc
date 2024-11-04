@@ -78,8 +78,8 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
   // create client for other clients
   // right now group is always 0, maybe configure later
   c2client = new Client2Client(
-    clients_config, transport, client_id, 0, pingReplicas, 
-    params, keyManager, timeServer, client_transport_id
+    config, clients_config, transport, client_id, 0, pingReplicas, 
+    params, keyManager, verifier, timeServer, client_transport_id
   );
 
   Debug("Sintr client [%lu] created! %lu %lu", client_id, nshards,
@@ -198,7 +198,7 @@ void Client::Get(const std::string &key, get_callback gcb,
 
     read_callback rcb = [gcb, this](int status, const std::string &key,
         const std::string &val, const Timestamp &ts, const proto::Dependency &dep,
-        bool hasDep, bool addReadSet, const proto::CommittedProof *proof) {
+        bool hasDep, bool addReadSet, const proto::CommittedProof &proof, const proto::SignedMessage &signedWrite) {
 
       uint64_t ns = 0; //Latency_End(&getLatency);
       if (Message_DebugEnabled(__FILE__)) {
@@ -216,7 +216,7 @@ void Client::Get(const std::string &key, get_callback gcb,
         ReadMessage *read = txn.add_read_set();
         read->set_key(key);
         ts.serialize(read->mutable_readtime());
-        c2client->ForwardReadResultMessage(key, val, ts, proof);
+        c2client->ForwardReadResultMessage(key, val, ts, proof, signedWrite, dep);
       }
       if (hasDep) {
         *txn.add_deps() = dep;

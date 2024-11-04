@@ -605,7 +605,7 @@ bool ShardClient::BufferGet(const std::string &key, read_callback rcb) {
       Debug("[group %i] Key %s was written with val %s.", group,
           BytesToHex(key, 16).c_str(), BytesToHex(write.value(), 16).c_str());
       rcb(REPLY_OK, key, write.value(), Timestamp(), proto::Dependency(),
-          false, false, NULL);
+          false, false, proto::CommittedProof(), proto::SignedMessage());
       return true;
     }
   }
@@ -616,7 +616,7 @@ bool ShardClient::BufferGet(const std::string &key, read_callback rcb) {
           BytesToHex(key, 16).c_str(), read.readtime().timestamp(),
           read.readtime().id());
       rcb(REPLY_OK, key, readValues[key], read.readtime(), proto::Dependency(),
-          false, false, NULL);
+          false, false, proto::CommittedProof(), proto::SignedMessage());
       return true;
     }
   }
@@ -783,6 +783,12 @@ void ShardClient::HandleReadReplyCB2(proto::ReadReply* reply, proto::Write *writ
     if (req->firstCommittedReply || req->maxTs < replyTs) {
       req->maxTs = replyTs;
       req->maxValue = write->committed_value();
+      if (reply->has_proof()) {
+        req->maxCommittedProof = reply->proof();
+      }
+      if (reply->has_signed_write()) {
+        req->maxSignedWrite = reply->signed_write();
+      }
     }
     req->firstCommittedReply = false;
 
@@ -821,6 +827,9 @@ void ShardClient::HandleReadReplyCB2(proto::ReadReply* reply, proto::Write *writ
         if (preparedItr->second.second >= req->rds) {
           req->maxTs = preparedItr->first;
           req->maxValue = preparedItr->second.first.prepared_value();
+          // if we are going to be forwarding a prepared value, no need for committed proof and signed write
+          req->maxCommittedProof.Clear();
+          req->maxSignedWrite.Clear();
           *req->dep.mutable_write() = preparedItr->second.first;
           if (params.validateProofs && params.signedMessages && params.verifyDeps) {
             *req->dep.mutable_write_sigs() = req->preparedSigs[preparedItr->first];
@@ -837,7 +846,7 @@ void ShardClient::HandleReadReplyCB2(proto::ReadReply* reply, proto::Write *writ
     req->maxTs.serialize(read->mutable_readtime());
     readValues[req->key] = req->maxValue;
     req->gcb(REPLY_OK, req->key, req->maxValue, req->maxTs, req->dep,
-        req->hasDep, true, &reply->proof());
+        req->hasDep, true, req->maxCommittedProof, req->maxSignedWrite);
     delete req; //XXX VERY IMPORTANT: dont delete while something is still dispatched for this reqId
     //could cause segfault. Need to keep a counter of things that are dispatched and only delete
     //once its gone. (dont need counter: just check in each callback if req still in map.!)
@@ -925,6 +934,12 @@ void ShardClient::HandleReadReply(const proto::ReadReply &reply) {
     if (req->firstCommittedReply || req->maxTs < replyTs) {
       req->maxTs = replyTs;
       req->maxValue = write->committed_value();
+      if (reply.has_proof()) {
+        req->maxCommittedProof = reply.proof();
+      }
+      if (reply.has_signed_write()) {
+        req->maxSignedWrite = reply.signed_write();
+      }
     }
     req->firstCommittedReply = false;
   }
@@ -964,6 +979,9 @@ void ShardClient::HandleReadReply(const proto::ReadReply &reply) {
         if (preparedItr->second.second >= req->rds) {
           req->maxTs = preparedItr->first;
           req->maxValue = preparedItr->second.first.prepared_value();
+          // if we are going to be forwarding a prepared value, no need for committed proof and signed write
+          req->maxCommittedProof.Clear();
+          req->maxSignedWrite.Clear();
           *req->dep.mutable_write() = preparedItr->second.first;
           if (params.validateProofs && params.signedMessages && params.verifyDeps) {
             *req->dep.mutable_write_sigs() = req->preparedSigs[preparedItr->first];
@@ -980,7 +998,7 @@ void ShardClient::HandleReadReply(const proto::ReadReply &reply) {
     req->maxTs.serialize(read->mutable_readtime());
     readValues[req->key] = req->maxValue;
     req->gcb(REPLY_OK, req->key, req->maxValue, req->maxTs, req->dep,
-        req->hasDep, true, &reply.proof());
+        req->hasDep, true, req->maxCommittedProof, req->maxSignedWrite);
     delete req;
   }
 }

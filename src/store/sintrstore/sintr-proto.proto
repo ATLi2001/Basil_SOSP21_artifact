@@ -77,6 +77,7 @@ message Dependency {
 }
 
 message Write {
+  // add a key field here
   optional bytes committed_value = 1;
   optional TimestampMessage committed_timestamp = 2;
   optional bytes prepared_value = 3;
@@ -386,11 +387,16 @@ message ForwardReadResult {
 message ForwardReadResultMessage {
   required uint64 client_id = 1;
   required uint64 client_seq_num = 2;
-  optional CommittedProof proof = 3;
   oneof forward_one_of {
-    ForwardReadResult fwd_read_result = 4;
-    SignedMessage signed_fwd_read_result = 5;
+    ForwardReadResult fwd_read_result = 3;
+    SignedMessage signed_fwd_read_result = 4;
   }
+  // committed proof shows the committed txn that corresponds with value
+  optional CommittedProof proof = 5;
+  // shows server signature 
+  optional SignedMessage signed_write = 6;
+  // shows dependency which can be verified
+  optional Dependency dep = 7;
 }
 
 // like the Transaction message type, but with less fields needed

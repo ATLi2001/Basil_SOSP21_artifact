@@ -59,9 +59,9 @@ namespace sintrstore {
 
 class Client2Client : public TransportReceiver, public PingInitiator, public PingTransport {
  public:
-  Client2Client(transport::Configuration *config, Transport *transport,
+  Client2Client(transport::Configuration *config, transport::Configuration *clients_config, Transport *transport,
       uint64_t client_id, int group, bool pingClients,
-      Parameters params, KeyManager *keyManager,
+      Parameters params, KeyManager *keyManager, Verifier *verifier,
       TrueTime &timeServer, uint64_t client_transport_id);
   virtual ~Client2Client();
 
@@ -76,8 +76,8 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   void SendBeginValidateTxnMessage(uint64_t id, Endorsement *endorse, const std::string &txnState);
 
   // forward server read reply to other peers
-  void ForwardReadResultMessage(const std::string &key, const std::string &value, 
-    const Timestamp &ts, const proto::CommittedProof *proof);
+  void ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
+    const proto::CommittedProof &proof, const proto::SignedMessage &signedWrite, const proto::Dependency &dep);
 
   void SetFailureFlag(bool f) {
     failureActive = f;
@@ -116,13 +116,17 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   const uint64_t client_id; // Unique ID for this client.
   const uint64_t client_transport_id; // unique transport id for this client
   Transport *transport; // Transport layer.
+  // client to server transport configuration state
   transport::Configuration *config;
+  // client to client transport configuration state
+  transport::Configuration *clients_config;
   const int group; // which group this client belongs to
   TrueTime &timeServer;
   const bool pingClients;
   const Parameters params;
   KeyManager *keyManager;
   Verifier *verifier;
+  Verifier *clients_verifier;
   bool failureActive;
   // current transaction sequence number (to send to others)
   uint64_t client_seq_num;
