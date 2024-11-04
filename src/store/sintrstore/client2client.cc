@@ -29,6 +29,7 @@
  **********************************************************************/
 
 #include "store/sintrstore/client2client.h"
+#include "store/sintrstore/basicverifier.h"
 #include "store/sintrstore/validation/validation_client.h"
 #include "store/sintrstore/validation/validation_transaction.h"
 #include "store/benchmark/async/tpcc/tpcc-validation-proto.pb.h"
@@ -40,13 +41,16 @@ namespace sintrstore {
 
 Client2Client::Client2Client(transport::Configuration *config, Transport *transport,
       uint64_t client_id, int group, bool pingClients,
-      Parameters params, KeyManager *keyManager, Verifier *verifier,
+      Parameters params, KeyManager *keyManager,
       TrueTime &timeServer, uint64_t client_transport_id) :
       PingInitiator(this, transport, config->n),
       client_id(client_id), client_transport_id(client_transport_id), transport(transport), config(config), group(group),
       timeServer(timeServer), pingClients(pingClients), params(params),
-      keyManager(keyManager), verifier(verifier) {
+      keyManager(keyManager) {
   
+  // separate verifier from main client instance
+  verifier = new BasicVerifier(transport);
+
   valClient = new ValidationClient(client_id, params); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
   transport->Register(this, *config, group, client_transport_id); 
@@ -227,9 +231,8 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
       return;
     }
     proto::SignedMessage signedMsg = finishValTxnMsg.signed_validation_txn_digest();
-    // TODO: switch this out with verifier
-    if (!crypto::Verify(keyManager->GetPublicKey(keyManager->GetClientKeyId(signedMsg.process_id())), 
-        &signedMsg.data()[0], signedMsg.data().length(), &signedMsg.signature()[0])) {
+    if(!verifier->Verify(keyManager->GetPublicKey(keyManager->GetClientKeyId(signedMsg.process_id())),
+        signedMsg.data(), signedMsg.signature())) {
       Debug("Invalid signature on validation txn digest sent from client id %lu", peer_client_id);
       return;
     }

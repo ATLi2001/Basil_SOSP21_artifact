@@ -26,22 +26,40 @@
 
 #include "store/sintrstore/endorsement.h"
 
+#include <algorithm>
+
 namespace sintrstore {
 
-Endorsement::Endorsement() : num_replies(0) {}
+Endorsement::Endorsement() : num_endorsements_needed(0) {}
+Endorsement::Endorsement(uint64_t num_endorsements_needed) : num_endorsements_needed(num_endorsements_needed) {}
 Endorsement::~Endorsement() {}
 
-void Endorsement::UpdateRequirement(uint64_t n) {
-  num_endorsements_needed = n;
+void Endorsement::UpdateRequirement(const proto::EndorsementPolicyMessage &endorsementPolicyMsg) {
+  if (endorsementPolicyMsg.has_weight()) {
+    if (endorsementPolicyMsg.weight() > num_endorsements_needed) {
+      num_endorsements_needed = endorsementPolicyMsg.weight();
+    }
+  }
+
+  for (const auto &client_id : endorsementPolicyMsg.access_control_list()) {
+    access_control_list.insert(client_id);
+  }
 }
 
-void Endorsement::AddValidation(const proto::FinishValidateTxnMessage validation) {
-  num_replies++;
-  endorsements.push_back(validation);
+void Endorsement::AddValidation(const proto::FinishValidateTxnMessage finishValTxnMsg) {
+  uint64_t peer_client_id = finishValTxnMsg.client_id();
+  if (client_ids_received.find(peer_client_id) == client_ids_received.end()) {
+    client_ids_received.insert(peer_client_id);
+    endorsements.push_back(finishValTxnMsg);
+  }
 }
 
 bool Endorsement::IsSatisfied() {
-  return num_replies >= num_endorsements_needed;
+  return (
+    (client_ids_received.size() >= num_endorsements_needed) 
+    && (std::includes(client_ids_received.begin(), client_ids_received.end(), 
+                      access_control_list.begin(), access_control_list.end()))
+  );
 }
 
 } // namespace sintrstore

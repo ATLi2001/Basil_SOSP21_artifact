@@ -30,6 +30,7 @@
 #include "store/sintrstore/sintr-proto.pb.h"
 
 #include <vector>
+#include <set>
 
 namespace sintrstore {
 
@@ -37,18 +38,21 @@ namespace sintrstore {
 class Endorsement {
  public:
   Endorsement();
+  Endorsement(uint64_t num_endorsements_needed);
   ~Endorsement();
 
-  void UpdateRequirement(uint64_t n);
-  void AddValidation(const proto::FinishValidateTxnMessage validation);
+  void UpdateRequirement(const proto::EndorsementPolicyMessage &endorsementPolicyMsg);
+  void AddValidation(const proto::FinishValidateTxnMessage finishValTxnMsg);
   bool IsSatisfied();
 
  private:
-  // currently just do weight based endorsement style
+  // weight based endorsement style
   uint64_t num_endorsements_needed;
-  uint64_t num_replies;
+  // access control list based
+  std::set<uint64_t> access_control_list;
+  // which peer clients have endorsed
+  std::set<uint64_t> client_ids_received;
   std::vector<proto::FinishValidateTxnMessage> endorsements;
-
 };
 
 } // namespace sintrstore

@@ -61,7 +61,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
  public:
   Client2Client(transport::Configuration *config, Transport *transport,
       uint64_t client_id, int group, bool pingClients,
-      Parameters params, KeyManager *keyManager, Verifier *verifier,
+      Parameters params, KeyManager *keyManager,
       TrueTime &timeServer, uint64_t client_transport_id);
   virtual ~Client2Client();
 

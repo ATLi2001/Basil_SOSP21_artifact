@@ -79,7 +79,7 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
   // right now group is always 0, maybe configure later
   c2client = new Client2Client(
     clients_config, transport, client_id, 0, pingReplicas, 
-    params, keyManager, verifier, timeServer, client_transport_id
+    params, keyManager, timeServer, client_transport_id
   );
 
   Debug("Sintr client [%lu] created! %lu %lu", client_id, nshards,
@@ -161,8 +161,10 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
 
     // begin sintr validation
     endorse = new Endorsement();
-    // just 1 for now
-    endorse->UpdateRequirement(1);
+    // test data
+    proto::EndorsementPolicyMessage test_policy;
+    test_policy.set_weight(1);
+    endorse->UpdateRequirement(test_policy);
     c2client->SendBeginValidateTxnMessage(client_seq_num, endorse, txnState);
 
     txn = proto::Transaction();

@@ -415,3 +415,8 @@ message FinishValidateTxnMessage {
     SignedMessage signed_validation_txn_digest = 3;
   }
 }
+
+message EndorsementPolicyMessage {
+  optional uint64 weight = 1;
+  repeated uint64 access_control_list = 2; 
+}
