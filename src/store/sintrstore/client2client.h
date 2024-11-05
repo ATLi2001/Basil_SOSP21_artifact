@@ -77,7 +77,8 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
   // forward server read reply to other peers
   void ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
-    const proto::CommittedProof &proof, const proto::SignedMessage &signedWrite, const proto::Dependency &dep);
+    const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
+    const proto::Dependency &dep);
 
   void SetFailureFlag(bool f) {
     failureActive = f;

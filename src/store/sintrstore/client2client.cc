@@ -128,7 +128,8 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, Endorsement *endors
 }
 
 void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
-    const proto::CommittedProof &proof, const proto::SignedMessage &signedWrite, const proto::Dependency &dep) {
+    const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
+    const proto::Dependency &dep) {
   proto::ForwardReadResultMessage fwdReadResultMsg = proto::ForwardReadResultMessage();
   fwdReadResultMsg.set_client_id(client_id);
   fwdReadResultMsg.set_client_seq_num(client_seq_num);
@@ -147,21 +148,34 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
     *fwdReadResultMsg.mutable_fwd_read_result() = fwdReadResult;
   }
 
-  if (params.validateProofs && params.signedMessages) {
-    if (proof.IsInitialized() && signedWrite.IsInitialized()) {
-      *fwdReadResultMsg.mutable_proof() = proof;
-      *fwdReadResultMsg.mutable_signed_write() = signedWrite;
-    }
-    if (proof.IsInitialized() != signedWrite.IsInitialized()) {
-      Debug("proof and signed write mismatch on client id %lu, seq num %lu", client_id, client_seq_num);
-    }
-    // if the forwarded read result is based on a prepared (not committed) txn
-    // then it could be ok to have no proof and corresponding signature
-  }
-
   // this will contain the prepared txn dependency
   if (dep.IsInitialized()) {
     *fwdReadResultMsg.mutable_dep() = dep;
+    // must be oneof write or signed write
+    *fwdReadResultMsg.mutable_write() = proto::Write();
+  }
+  else {
+    if (params.validateProofs) {
+      if (proof.IsInitialized()) {
+        *fwdReadResultMsg.mutable_proof() = proof;
+      }
+      // if no proof then it is possible the value is empty
+    }
+
+    // depending on if signatures are enabled and if the value is non empty
+    proto::SignedMessage signedWrite;
+    proto::Write write;
+    if (serializedWriteTypeName == signedWrite.GetTypeName()) {
+      signedWrite.ParseFromString(serializedWrite);
+      *fwdReadResultMsg.mutable_signed_write() = signedWrite;
+    }
+    else if (serializedWriteTypeName == write.GetTypeName()) {
+      write.ParseFromString(serializedWrite);
+      *fwdReadResultMsg.mutable_write() = write;
+    }
+    else {
+      *fwdReadResultMsg.mutable_write() = write;
+    }
   }
 
   Debug(
@@ -214,35 +228,32 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
       return;
     }
     fwdReadResult.ParseFromString(data);
+  }
+  else {
+    fwdReadResult = fwdReadResultMsg.fwd_read_result();
+  }
 
-    // if has dependency, then this is based on a prepared txn
-    if (fwdReadResultMsg.has_dep()) {
-      if (params.validateProofs && params.signedMessages && params.verifyDeps) {
-        if (!ValidateDependency(fwdReadResultMsg.dep(), config, params.readDepSize, 
-            keyManager, verifier)) {
-          Debug(
-            "Invalid dependency on forwarded read result from client id %lu, seq num %lu",
-            curr_client_id, 
-            curr_client_seq_num
-          );
-          return;
-        }
+  // if has dependency, then this is based on a prepared txn
+  if (fwdReadResultMsg.has_dep()) {
+    if (params.validateProofs && params.signedMessages && params.verifyDeps) {
+      if (!ValidateDependency(fwdReadResultMsg.dep(), config, params.readDepSize, 
+          keyManager, verifier)) {
+        Debug(
+          "Invalid dependency on forwarded read result from client id %lu, seq num %lu",
+          curr_client_id, 
+          curr_client_seq_num
+        );
+        return;
       }
-    } 
-    else {
-      // otherwise can check committed proof and signature
+    }
+  } 
+  else {
+    // otherwise can check committed proof and signature
 
-      if (params.validateProofs && params.signedMessages) {
-        // check server signature
-        if (!fwdReadResultMsg.has_signed_write()) {
-          Debug(
-            "Missing server signature on forwarded read result from client id %lu, seq num %lu", 
-            curr_client_id, 
-            curr_client_seq_num
-          );
-          return;
-        }
-
+    proto::Write write;
+    if (params.validateProofs && params.signedMessages) {
+      // check server signature
+      if (fwdReadResultMsg.has_signed_write()) {
         proto::SignedMessage signedWrite = fwdReadResultMsg.signed_write();
         if (!verifier->Verify(keyManager->GetPublicKey(signedWrite.process_id()),
             signedWrite.data(), signedWrite.signature())) {
@@ -254,16 +265,35 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
           return;
         }
 
-        proto::Write write;
         write.ParseFromString(signedWrite.data());
+      }
+      else {
+        if (fwdReadResultMsg.has_write() && fwdReadResultMsg.write().has_committed_value()) {
+          Debug(
+            "Missing server signature on forwarded read result with committed value from client id %lu, seq num %lu", 
+            curr_client_id, 
+            curr_client_seq_num
+          );
+          return;
+        }
 
-        // check committed proof
+        write = fwdReadResultMsg.write();
+      }
+    }
+    else {
+      write = fwdReadResultMsg.write();
+    }
+      
+    if (params.validateProofs) {
+      // check committed proof
+      if (write.has_committed_value() && write.has_committed_timestamp()) {
         if (!fwdReadResultMsg.has_proof()) {
           Debug(
             "Missing committed value proof for forwarded read result from client id %lu, seq num %lu",
             curr_client_id,
             curr_client_seq_num
           );
+          return;
         }
         
         std::string committedTxnDigest = TransactionDigest(fwdReadResultMsg.proof().txn(), params.hashDigest);
@@ -280,9 +310,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
       }
     }
   }
-  else {
-    fwdReadResult = fwdReadResultMsg.fwd_read_result();
-  }
+
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
   Debug(

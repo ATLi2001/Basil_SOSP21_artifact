@@ -393,10 +393,13 @@ message ForwardReadResultMessage {
   }
   // committed proof shows the committed txn that corresponds with value
   optional CommittedProof proof = 5;
-  // shows server signature 
-  optional SignedMessage signed_write = 6;
+  // shows server (signed) value
+  oneof prepared_oneof {
+    Write write = 6;
+    SignedMessage signed_write = 7;
+  }
   // shows dependency which can be verified
-  optional Dependency dep = 7;
+  optional Dependency dep = 8;
 }
 
 // like the Transaction message type, but with less fields needed
