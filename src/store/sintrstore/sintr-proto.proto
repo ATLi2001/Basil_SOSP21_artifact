@@ -423,6 +423,8 @@ message FinishValidateTxnMessage {
     ValidationTxnDigest validation_txn_digest = 2;
     SignedMessage signed_validation_txn_digest = 3;
   }
+  // optionally can compare entire transaction directly
+  optional ValidationTxn val_txn = 4;
 }
 
 message EndorsementPolicyMessage {

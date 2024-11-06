@@ -272,6 +272,18 @@ void Client::Commit(commit_callback ccb, commit_timeout_callback ctcb,
       std::sort(txn.mutable_write_set()->begin(), txn.mutable_write_set()->end(), sortWriteByKey);
     }
 
+    // set expected endorsement digest
+    proto::ValidationTxn valTxn = proto::ValidationTxn();
+    valTxn.set_client_id(txn.client_id());
+    valTxn.set_client_seq_num(txn.client_seq_num());
+    *valTxn.mutable_read_set() = txn.read_set();
+    *valTxn.mutable_write_set() = txn.write_set();
+    std::string digest = ValidationDigest(valTxn, params.sintr_params.hashValDigest);
+    if (params.sintr_params.debugEndorseCheck) {
+      endorse->DebugSetExpectedTxnOutput(valTxn);
+    }
+    endorse->SetExpectedTxnOutput(digest);
+
     PendingRequest *req = new PendingRequest(client_seq_num, this);
     pendingReqs[client_seq_num] = req;
     req->txn = txn; //Is this a copy or just reference?

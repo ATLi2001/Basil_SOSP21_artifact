@@ -31,6 +31,7 @@
 
 #include <vector>
 #include <set>
+#include <map>
 
 namespace sintrstore {
 
@@ -41,18 +42,30 @@ class Endorsement {
   Endorsement(uint64_t num_endorsements_needed);
   ~Endorsement();
 
+  void SetExpectedTxnOutput(const std::string &expectedValTxnDigest);
+  void DebugSetExpectedTxnOutput(const proto::ValidationTxn &expectedValTxn);
+  void DebugCheck(const proto::ValidationTxn &valTxn);
   void UpdateRequirement(const proto::EndorsementPolicyMessage &endorsementPolicyMsg);
-  void AddValidation(const proto::FinishValidateTxnMessage finishValTxnMsg);
+  void AddValidation(const uint64_t peer_client_id, const std::string &valTxnDigest, 
+    const proto::SignedMessage &signedValTxnDigest);
   bool IsSatisfied();
 
  private:
+  // expected validation transaction digest
+  std::string expectedValTxnDigest;
+  // debug by checking entire validation txn
+  proto::ValidationTxn expectedValTxn;
   // weight based endorsement style
   uint64_t num_endorsements_needed;
   // access control list based
   std::set<uint64_t> access_control_list;
   // which peer clients have endorsed
   std::set<uint64_t> client_ids_received;
-  std::vector<proto::FinishValidateTxnMessage> endorsements;
+  // confirmed endorsement signatures to send to server
+  std::vector<proto::SignedMessage> endorsements;
+  // also maintain pending endorsements if endorsement comes back before expectedValTxnDigest is set
+  // map from client id to digest
+  std::map<uint64_t, std::string> pendingEndorsements;
 };
 
 } // namespace sintrstore

@@ -286,13 +286,8 @@ void ValidationClient::AddReadset(uint64_t txn_client_id, uint64_t txn_client_se
     a->second->set_client_seq_num(txn_client_seq_num);
   }
 
-  // try to add to readset
+  // add to readset
   proto::ValidationTxn *txn = a->second;
-  for (const auto &read : txn->read_set()) {
-    if (read.key() == key) {
-      return; // this is a stale request
-    }
-  }
   ReadMessage *read = txn->add_read_set();
   read->set_key(key);
   ts.serialize(read->mutable_readtime());

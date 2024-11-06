@@ -339,6 +339,9 @@ uint64_t SlowAbortQuorumSize(const transport::Configuration *config);
 bool IsReplicaInGroup(uint64_t id, uint32_t group,
     const transport::Configuration *config);
 
+inline static bool sortReadByKey(const ReadMessage &lhs, const ReadMessage &rhs) { return lhs.key() < rhs.key(); }
+inline static bool sortWriteByKey(const WriteMessage &lhs, const WriteMessage &rhs) { return lhs.key() < rhs.key(); }
+
 int64_t GetLogGroup(const proto::Transaction &txn, const std::string &txnDigest);
 
 enum InjectFailureType {
@@ -366,13 +369,15 @@ typedef struct SintrParameters {
   const bool signFwdReadResults; // sign (and validate) forward read results
   const bool signFinishValidation; // sign (and validate) finish validation messages
   const bool hashValDigest; // use hash function to compute validation txn digest
+  const bool debugEndorseCheck; // debug endorsement check
 
   SintrParameters(uint64_t maxValThreads, bool signFwdReadResults, bool signFinishValidation,
-    bool hashValDigest) :
+    bool hashValDigest, bool debugEndorseCheck) :
     maxValThreads(maxValThreads), 
     signFwdReadResults(signFwdReadResults), 
     signFinishValidation(signFinishValidation),
-    hashValDigest(hashValDigest) {}
+    hashValDigest(hashValDigest),
+    debugEndorseCheck(debugEndorseCheck) {}
 } SintrParameters;
 
 typedef struct Parameters {

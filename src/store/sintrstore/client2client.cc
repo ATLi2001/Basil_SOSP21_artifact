@@ -327,6 +327,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
 void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg) {
   uint64_t peer_client_id = finishValTxnMsg.client_id();
 
+  proto::SignedMessage signedMsg;
   proto::ValidationTxnDigest valTxnDigest;
   if (params.sintr_params.signFinishValidation) {
     // verify signature
@@ -334,7 +335,7 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
       Debug("Missing signed validation txn digest sent from client id %lu", peer_client_id);
       return;
     }
-    proto::SignedMessage signedMsg = finishValTxnMsg.signed_validation_txn_digest();
+    signedMsg = finishValTxnMsg.signed_validation_txn_digest();
     if(!clients_verifier->Verify(keyManager->GetPublicKey(keyManager->GetClientKeyId(signedMsg.process_id())),
         signedMsg.data(), signedMsg.signature())) {
       Debug("Invalid signature on validation txn digest sent from client id %lu", peer_client_id);
@@ -356,7 +357,11 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
   }
   Debug("HandleFinishValidateTxnMessage: from client id %lu, for my seq num %lu", peer_client_id, valTxnDigest.client_seq_num());
 
-  endorse->AddValidation(finishValTxnMsg);
+  if (params.sintr_params.debugEndorseCheck) {
+    endorse->DebugCheck(finishValTxnMsg.val_txn());
+  }
+
+  endorse->AddValidation(peer_client_id, valTxnDigest.digest(), signedMsg);
 }
 
 void Client2Client::ValidationThreadFunction() {
@@ -377,6 +382,10 @@ void Client2Client::ValidationThreadFunction() {
     if (result == COMMITTED) {
       Debug("Completed validation for client id %lu, seq num %lu", curr_client_id, curr_client_seq_num);
       proto::ValidationTxn *txn = valClient->GetCompletedValTxn(curr_client_id, curr_client_seq_num);
+
+      // for consistent hashing results
+      std::sort(txn->mutable_read_set()->begin(), txn->mutable_read_set()->end(), sortReadByKey);
+      std::sort(txn->mutable_write_set()->begin(), txn->mutable_write_set()->end(), sortWriteByKey);
 
       proto::FinishValidateTxnMessage finishValTxnMsg = proto::FinishValidateTxnMessage();
       finishValTxnMsg.set_client_id(client_id);
@@ -401,6 +410,10 @@ void Client2Client::ValidationThreadFunction() {
       }
       else {
         *finishValTxnMsg.mutable_validation_txn_digest() = valTxnDigest;
+      }
+
+      if (params.sintr_params.debugEndorseCheck) {
+        *finishValTxnMsg.mutable_val_txn() = *txn;
       }
 
       transport->SendMessage(this, *valInfo->remote, finishValTxnMsg);

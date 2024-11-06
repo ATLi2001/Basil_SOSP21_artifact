@@ -303,10 +303,6 @@ class Client : public ::Client {
   // endorsements to collect for current transaction
   Endorsement *endorse;
 
-  inline static bool sortReadByKey(const ReadMessage &lhs, const ReadMessage &rhs) { return lhs.key() < rhs.key(); }
-  inline static bool sortWriteByKey(const WriteMessage &lhs, const WriteMessage &rhs) { return lhs.key() < rhs.key(); }
-
-
   /* Debug State */
   std::unordered_map<std::string, uint32_t> statInts;
   struct Latency_t executeLatency;
