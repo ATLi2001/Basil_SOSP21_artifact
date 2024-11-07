@@ -27,6 +27,7 @@
 #ifndef _SINTR_ENDORSEMENT_H_
 #define _SINTR_ENDORSEMENT_H_
 
+#include "store/sintrstore/endorsement_policy.h"
 #include "store/sintrstore/sintr-proto.pb.h"
 
 #include <vector>
@@ -35,17 +36,17 @@
 
 namespace sintrstore {
 
-// this class represents the endorsement neccessary for a transaction
-class Endorsement {
+// this class keeps state for an ongoing transaction endorsement
+class EndorsementClient {
  public:
-  Endorsement();
-  Endorsement(uint64_t num_endorsements_needed);
-  ~Endorsement();
+  EndorsementClient();
+  EndorsementClient(EndorsementPolicy policy);
+  ~EndorsementClient();
 
   void SetExpectedTxnOutput(const std::string &expectedValTxnDigest);
   void DebugSetExpectedTxnOutput(const proto::ValidationTxn &expectedValTxn);
   void DebugCheck(const proto::ValidationTxn &valTxn);
-  void UpdateRequirement(const proto::EndorsementPolicyMessage &endorsementPolicyMsg);
+  void UpdateRequirement(EndorsementPolicy policy);
   void AddValidation(const uint64_t peer_client_id, const std::string &valTxnDigest, 
     const proto::SignedMessage &signedValTxnDigest);
   bool IsSatisfied();
@@ -55,10 +56,7 @@ class Endorsement {
   std::string expectedValTxnDigest;
   // debug by checking entire validation txn
   proto::ValidationTxn expectedValTxn;
-  // weight based endorsement style
-  uint64_t num_endorsements_needed;
-  // access control list based
-  std::set<uint64_t> access_control_list;
+  EndorsementPolicy policy;
   // which peer clients have endorsed
   std::set<uint64_t> client_ids_received;
   // confirmed endorsement signatures to send to server

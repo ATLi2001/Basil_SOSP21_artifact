@@ -34,6 +34,7 @@
 #include "store/sintrstore/localbatchverifier.h"
 #include "store/sintrstore/basicverifier.h"
 #include "store/sintrstore/common.h"
+#include "store/sintrstore/endorsement_policy.h"
 #include <sys/time.h>
 
 namespace sintrstore {
@@ -117,7 +118,7 @@ Client::~Client()
       delete b;
   }
   delete c2client;
-  delete endorse;
+  delete endorseClient;
   delete verifier;
 }
 
@@ -160,12 +161,9 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
     Debug("BEGIN [%lu]", client_seq_num);
 
     // begin sintr validation
-    endorse = new Endorsement();
-    // test data
-    proto::EndorsementPolicyMessage test_policy;
-    test_policy.set_weight(1);
-    endorse->UpdateRequirement(test_policy);
-    c2client->SendBeginValidateTxnMessage(client_seq_num, endorse, txnState);
+    EndorsementPolicy policy(1);
+    endorseClient = new EndorsementClient(policy);
+    c2client->SendBeginValidateTxnMessage(client_seq_num, endorseClient, txnState);
 
     txn = proto::Transaction();
     txn.set_client_id(client_id);
@@ -280,9 +278,9 @@ void Client::Commit(commit_callback ccb, commit_timeout_callback ctcb,
     *valTxn.mutable_write_set() = txn.write_set();
     std::string digest = ValidationDigest(valTxn, params.sintr_params.hashValDigest);
     if (params.sintr_params.debugEndorseCheck) {
-      endorse->DebugSetExpectedTxnOutput(valTxn);
+      endorseClient->DebugSetExpectedTxnOutput(valTxn);
     }
-    endorse->SetExpectedTxnOutput(digest);
+    endorseClient->SetExpectedTxnOutput(digest);
 
     PendingRequest *req = new PendingRequest(client_seq_num, this);
     pendingReqs[client_seq_num] = req;
@@ -704,7 +702,7 @@ void Client::WritebackProcessing(PendingRequest *req){
 void Client::Writeback(PendingRequest *req) {
 
   // if endorsement is not satisfied yet, add back to event loop
-  if (!endorse->IsSatisfied()) {
+  if (!endorseClient->IsSatisfied()) {
     Debug("endorse not sat, Timer(Writeback)");
     transport->Timer(0, [this, req]() {
       Writeback(req);
@@ -712,7 +710,7 @@ void Client::Writeback(PendingRequest *req) {
     return;
   }
   // TODO: handle endorsement
-  delete endorse;
+  delete endorseClient;
 
   //total_writebacks++;
   Debug("WRITEBACK[%lu:%lu] result %s", client_id, req->id, req->decision ?  "ABORT" : "COMMIT");

@@ -8,7 +8,8 @@ d := $(cd)
 
 SRCS += $(addprefix $(d), client.cc shardclient.cc client2client.cc server.cc store.cc common.cc \
 		phase1validator.cc localbatchsigner.cc sharedbatchsigner.cc \
-		basicverifier.cc localbatchverifier.cc sharedbatchverifier.cc proto_bench.cc endorsement.cc)
+		basicverifier.cc localbatchverifier.cc sharedbatchverifier.cc proto_bench.cc \
+		endorsement_client.cc endorsement_policy.cc)
 
 PROTOS += $(addprefix $(d), sintr-proto.proto)
 
@@ -24,7 +25,8 @@ LIB-sintr-client := $(LIB-udptransport) \
 	$(LIB-store-frontend) $(LIB-store-common) $(o)sintr-proto.o \
 	$(o)shardclient.o $(o)client.o $(o)client2client.o $(LIB-bft-tapir-config) \
 	$(LIB-crypto) $(LIB-batched-sigs) $(o)common.o $(o)phase1validator.o \
-	$(o)basicverifier.o $(o)localbatchverifier.o $(LIB-sintr-validation) $(o)endorsement.o
+	$(o)basicverifier.o $(o)localbatchverifier.o $(LIB-sintr-validation) \
+	$(o)endorsement_client.o $(o)endorsement_policy.o
 
 
 LIB-proto := $(o)sintr-proto.o

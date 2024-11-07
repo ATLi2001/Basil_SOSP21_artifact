@@ -24,7 +24,7 @@
  *
  **********************************************************************/
 
-#include "store/sintrstore/endorsement.h"
+#include "store/sintrstore/endorsement_client.h"
 #include "store/sintrstore/common.h"
 #include "lib/message.h"
 
@@ -33,11 +33,11 @@
 
 namespace sintrstore {
 
-Endorsement::Endorsement() : num_endorsements_needed(0) {}
-Endorsement::Endorsement(uint64_t num_endorsements_needed) : num_endorsements_needed(num_endorsements_needed) {}
-Endorsement::~Endorsement() {}
+EndorsementClient::EndorsementClient() {}
+EndorsementClient::EndorsementClient(EndorsementPolicy policy) : policy(policy) {}
+EndorsementClient::~EndorsementClient() {}
 
-void Endorsement::SetExpectedTxnOutput(const std::string &expectedValTxnDigest) {
+void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedValTxnDigest) {
   this->expectedValTxnDigest = expectedValTxnDigest;
   
   // now also check pendingEndorsements
@@ -58,10 +58,10 @@ void Endorsement::SetExpectedTxnOutput(const std::string &expectedValTxnDigest) 
   pendingEndorsements.clear();
 }
 
-void Endorsement::DebugSetExpectedTxnOutput(const proto::ValidationTxn &expectedValTxn) {
+void EndorsementClient::DebugSetExpectedTxnOutput(const proto::ValidationTxn &expectedValTxn) {
   this->expectedValTxn = expectedValTxn;
 }
-void Endorsement::DebugCheck(const proto::ValidationTxn &valTxn) {
+void EndorsementClient::DebugCheck(const proto::ValidationTxn &valTxn) {
   if (!expectedValTxn.IsInitialized()) {
     return;
   }
@@ -103,19 +103,11 @@ void Endorsement::DebugCheck(const proto::ValidationTxn &valTxn) {
   }
 }
 
-void Endorsement::UpdateRequirement(const proto::EndorsementPolicyMessage &endorsementPolicyMsg) {
-  if (endorsementPolicyMsg.has_weight()) {
-    if (endorsementPolicyMsg.weight() > num_endorsements_needed) {
-      num_endorsements_needed = endorsementPolicyMsg.weight();
-    }
-  }
-
-  for (const auto &client_id : endorsementPolicyMsg.access_control_list()) {
-    access_control_list.insert(client_id);
-  }
+void EndorsementClient::UpdateRequirement(EndorsementPolicy policy) {
+  this->policy.MergePolicy(policy);
 }
 
-void Endorsement::AddValidation(const uint64_t peer_client_id, const std::string &valTxnDigest,
+void EndorsementClient::AddValidation(const uint64_t peer_client_id, const std::string &valTxnDigest,
     const proto::SignedMessage &signedValTxnDigest) {
   // if new peer
   if (client_ids_received.find(peer_client_id) == client_ids_received.end()) {
@@ -142,12 +134,8 @@ void Endorsement::AddValidation(const uint64_t peer_client_id, const std::string
   }
 }
 
-bool Endorsement::IsSatisfied() {
-  return (
-    (client_ids_received.size() >= num_endorsements_needed) 
-    && (std::includes(client_ids_received.begin(), client_ids_received.end(), 
-                      access_control_list.begin(), access_control_list.end()))
-  );
+bool EndorsementClient::IsSatisfied() {
+  return policy.IsSatisfied(client_ids_received);
 }
 
 } // namespace sintrstore

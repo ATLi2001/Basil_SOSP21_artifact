@@ -46,7 +46,7 @@
 #include "store/sintrstore/shardclient.h"
 #include "store/sintrstore/client2client.h"
 #include "store/sintrstore/sintr-proto.pb.h"
-#include "store/sintrstore/endorsement.h"
+#include "store/sintrstore/endorsement_client.h"
 #include <sys/time.h>
 #include "store/common/stats.h"
 #include <unistd.h>
@@ -300,8 +300,8 @@ class Client : public ::Client {
 
   std::unordered_map<uint64_t, uint64_t> pendingReqs_starttime;
 
-  // endorsements to collect for current transaction
-  Endorsement *endorse;
+  // collect endorsements for current transaction
+  EndorsementClient *endorseClient;
 
   /* Debug State */
   std::unordered_map<std::string, uint32_t> statInts;
