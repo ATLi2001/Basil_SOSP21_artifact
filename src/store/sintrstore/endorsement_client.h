@@ -29,6 +29,7 @@
 
 #include "store/sintrstore/endorsement_policy.h"
 #include "store/sintrstore/sintr-proto.pb.h"
+#include "lib/keymanager.h"
 
 #include <vector>
 #include <set>
@@ -39,10 +40,11 @@ namespace sintrstore {
 // this class keeps state for an ongoing transaction endorsement
 class EndorsementClient {
  public:
-  EndorsementClient();
-  EndorsementClient(EndorsementPolicy policy);
+  EndorsementClient(uint64_t client_id, uint64_t client_transport_id, KeyManager *keyManager);
+  EndorsementClient(uint64_t client_id, uint64_t client_transport_id, KeyManager *keyManager, EndorsementPolicy policy);
   ~EndorsementClient();
 
+  void SetClientSeqNum(uint64_t client_seq_num);
   void SetExpectedTxnOutput(const std::string &expectedValTxnDigest);
   void DebugSetExpectedTxnOutput(const proto::ValidationTxn &expectedValTxn);
   void DebugCheck(const proto::ValidationTxn &valTxn);
@@ -50,12 +52,21 @@ class EndorsementClient {
   void AddValidation(const uint64_t peer_client_id, const std::string &valTxnDigest, 
     const proto::SignedMessage &signedValTxnDigest);
   bool IsSatisfied();
+  void Reset();
 
  private:
+  // this client information
+  const uint64_t client_id;
+  const uint64_t client_transport_id;
+  KeyManager *keyManager;
+  
+  // transaction specific
+  uint64_t client_seq_num;
   // expected validation transaction digest
   std::string expectedValTxnDigest;
   // debug by checking entire validation txn
   proto::ValidationTxn expectedValTxn;
+  // endorsement policy which must be satisfied
   EndorsementPolicy policy;
   // which peer clients have endorsed
   std::set<uint64_t> client_ids_received;

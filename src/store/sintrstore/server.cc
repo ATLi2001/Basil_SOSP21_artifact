@@ -493,6 +493,8 @@ void Server::Load(const std::string &key, const std::string &value,
   auto committedItr = committed.find("");
   UW_ASSERT(committedItr != committed.end());
   val.proof = committedItr->second;
+  // TODO: actually set policy
+  val.policy = EndorsementPolicy(2);
   store.put(key, val, timestamp);
   if (key.length() == 5 && key[0] == 0) {
     std::cerr << std::bitset<8>(key[0]) << ' '
@@ -528,12 +530,14 @@ void Server::HandleRead(const TransportAddress &remote,
   proto::ReadReply* readReply = GetUnusedReadReply();
   readReply->set_req_id(msg.req_id());
   readReply->set_key(msg.key());
+  readReply->mutable_write()->set_key(msg.key());
   if (exists) {
     Debug("READ[%lu:%lu] Committed value of length %lu bytes with ts %lu.%lu.",
         msg.timestamp().id(), msg.req_id(), tsVal.second.val.length(), tsVal.first.getTimestamp(),
         tsVal.first.getID());
     readReply->mutable_write()->set_committed_value(tsVal.second.val);
     tsVal.first.serialize(readReply->mutable_write()->mutable_committed_timestamp());
+    tsVal.second.policy.SerializeToProtoMessage(readReply->mutable_write()->mutable_committed_policy());
     if (params.validateProofs) {
       *readReply->mutable_proof() = *tsVal.second.proof;
     }

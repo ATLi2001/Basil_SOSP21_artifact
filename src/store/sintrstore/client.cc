@@ -76,11 +76,13 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
         keyManager, verifier, timeServer, phase1DecisionTimeout, consecutiveMax));
   }
 
+  endorseClient = new EndorsementClient(client_id, client_transport_id, keyManager);
+
   // create client for other clients
   // right now group is always 0, maybe configure later
   c2client = new Client2Client(
     config, clients_config, transport, client_id, 0, pingReplicas, 
-    params, keyManager, verifier, timeServer, client_transport_id
+    params, keyManager, verifier, timeServer, client_transport_id, endorseClient
   );
 
   Debug("Sintr client [%lu] created! %lu %lu", client_id, nshards,
@@ -161,9 +163,12 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
     Debug("BEGIN [%lu]", client_seq_num);
 
     // begin sintr validation
-    EndorsementPolicy policy(1);
-    endorseClient = new EndorsementClient(policy);
-    c2client->SendBeginValidateTxnMessage(client_seq_num, endorseClient, txnState);
+    endorseClient->Reset();
+    endorseClient->SetClientSeqNum(client_seq_num);
+    // dummy endorsement policy
+    EndorsementPolicy policy(2);
+    endorseClient->UpdateRequirement(policy);
+    c2client->SendBeginValidateTxnMessage(client_seq_num, txnState);
 
     txn = proto::Transaction();
     txn.set_client_id(client_id);
@@ -214,7 +219,7 @@ void Client::Get(const std::string &key, get_callback gcb,
         ReadMessage *read = txn.add_read_set();
         read->set_key(key);
         ts.serialize(read->mutable_readtime());
-        c2client->ForwardReadResultMessage(key, val, ts, proof, serializedWrite, serializedWriteTypeName, dep);
+        c2client->ForwardReadResultMessage(key, val, ts, proof, serializedWrite, serializedWriteTypeName, dep, hasDep);
       }
       if (hasDep) {
         *txn.add_deps() = dep;
@@ -710,7 +715,6 @@ void Client::Writeback(PendingRequest *req) {
     return;
   }
   // TODO: handle endorsement
-  delete endorseClient;
 
   //total_writebacks++;
   Debug("WRITEBACK[%lu:%lu] result %s", client_id, req->id, req->decision ?  "ABORT" : "COMMIT");

@@ -43,12 +43,22 @@ class EndorsementPolicy {
   EndorsementPolicy(const proto::EndorsementPolicyMessage &endorsePolicyMsg);
   ~EndorsementPolicy();
 
+  bool operator== (const EndorsementPolicy &other) const;
+  bool operator!= (const EndorsementPolicy &other) const;
+  bool operator> (const EndorsementPolicy &other) const;
+  bool operator< (const EndorsementPolicy &other) const;
+  bool operator>= (const EndorsementPolicy &other) const;
+  bool operator<= (const EndorsementPolicy &other) const;
+
   uint64_t GetWeight() const;
   std::set<uint64_t> GetAccessControlList() const;
   // does endorsements satisfy this EndorsementPolicy object?
-  bool IsSatisfied(const std::set<uint64_t> &endorsements);
+  bool IsSatisfied(const std::set<uint64_t> &endorsements) const;
   // merge this EndorsementPolicy with other
   void MergePolicy(const EndorsementPolicy &other);
+  // serialize to proto version
+  void SerializeToProtoMessage(proto::EndorsementPolicyMessage *msg) const;
+  void Reset();
 
  private:
   // weight says number of endorsements needed

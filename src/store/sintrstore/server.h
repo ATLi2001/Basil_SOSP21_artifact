@@ -44,6 +44,7 @@
 #include "store/sintrstore/sintr-proto.pb.h"
 #include "store/sintrstore/batchsigner.h"
 #include "store/sintrstore/verifier.h"
+#include "store/sintrstore/endorsement_policy.h"
 #include <sys/time.h>
 
 #include <set>
@@ -111,6 +112,7 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
   struct Value {
     std::string val;
     const proto::CommittedProof *proof;
+    EndorsementPolicy policy;
   };
   void ReceiveMessageInternal(const TransportAddress &remote,
       const std::string &type, const std::string &data,

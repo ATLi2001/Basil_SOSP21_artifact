@@ -47,6 +47,41 @@ EndorsementPolicy::EndorsementPolicy(const proto::EndorsementPolicyMessage &endo
 }
 EndorsementPolicy::~EndorsementPolicy() {}
 
+bool EndorsementPolicy::operator== (const EndorsementPolicy &other) const {
+  return (weight == other.weight) && (access_control_list == other.access_control_list);
+}
+bool EndorsementPolicy::operator!= (const EndorsementPolicy &other) const {
+  return !(*this == other);
+}
+bool EndorsementPolicy::operator> (const EndorsementPolicy &other) const {
+  return (*this >= other) && (*this != other);
+}
+bool EndorsementPolicy::operator< (const EndorsementPolicy &other) const {
+  return (*this <= other) && (*this != other);
+}
+bool EndorsementPolicy::operator>= (const EndorsementPolicy &other) const {
+  // this weight at least other weight
+  // and this access control list a superset of other access control list
+  return (
+    (weight >= other.weight) 
+    && (
+      std::includes(access_control_list.begin(), access_control_list.end(), 
+                    other.access_control_list.begin(), other.access_control_list.end())
+    )
+  );
+}
+bool EndorsementPolicy::operator<= (const EndorsementPolicy &other) const {
+  // this weight at most other weight
+  // and this access control list a subset of other access control list
+  return (
+    (weight <= other.weight) 
+    && (
+      std::includes(other.access_control_list.begin(), other.access_control_list.end(), 
+                    access_control_list.begin(), access_control_list.end())
+    )
+  );
+}
+
 uint64_t EndorsementPolicy::GetWeight() const {
   return weight;
 }
@@ -54,7 +89,7 @@ std::set<uint64_t> EndorsementPolicy::GetAccessControlList() const {
   return access_control_list;
 }
 
-bool EndorsementPolicy::IsSatisfied(const std::set<uint64_t> &endorsements) {
+bool EndorsementPolicy::IsSatisfied(const std::set<uint64_t> &endorsements) const {
   return (
     (endorsements.size() >= weight) 
     && (std::includes(endorsements.begin(), endorsements.end(), 
@@ -68,6 +103,18 @@ void EndorsementPolicy::MergePolicy(const EndorsementPolicy &other) {
   }
   std::set<uint64_t> other_set = other.GetAccessControlList();
   access_control_list.insert(other_set.begin(), other_set.end());
+}
+
+void EndorsementPolicy::SerializeToProtoMessage(proto::EndorsementPolicyMessage *msg) const {
+  msg->set_weight(weight);
+  for (const auto &client_id : access_control_list) {
+    msg->add_access_control_list(client_id);
+  }  
+}
+
+void EndorsementPolicy::Reset() {
+  weight = 0;
+  access_control_list.clear();
 }
 
 } // namespace sintrstore

@@ -33,12 +33,33 @@
 
 namespace sintrstore {
 
-EndorsementClient::EndorsementClient() {}
-EndorsementClient::EndorsementClient(EndorsementPolicy policy) : policy(policy) {}
+EndorsementClient::EndorsementClient(uint64_t client_id, uint64_t client_transport_id,
+  KeyManager *keyManager) : 
+  client_id(client_id), client_transport_id(client_transport_id), keyManager(keyManager) {}
+EndorsementClient::EndorsementClient(uint64_t client_id, uint64_t client_transport_id,
+  KeyManager *keyManager, EndorsementPolicy policy) :
+  client_id(client_id), client_transport_id(client_transport_id), keyManager(keyManager), policy(policy) {}
 EndorsementClient::~EndorsementClient() {}
+
+void EndorsementClient::SetClientSeqNum(uint64_t client_seq_num) {
+  this->client_seq_num = client_seq_num;
+}
 
 void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedValTxnDigest) {
   this->expectedValTxnDigest = expectedValTxnDigest;
+  // add self as an endorsement
+  client_ids_received.insert(client_id);
+  proto::ValidationTxnDigest protoExpectedValTxnDigest;
+  protoExpectedValTxnDigest.set_client_id(client_id);
+  protoExpectedValTxnDigest.set_client_seq_num(client_seq_num);
+  proto::SignedMessage signedMessage;
+  SignMessage(
+    &protoExpectedValTxnDigest, 
+    keyManager->GetPrivateKey(keyManager->GetClientKeyId(client_transport_id)), 
+    client_transport_id, 
+    &signedMessage
+  );
+  endorsements.push_back(signedMessage);
   
   // now also check pendingEndorsements
   for (auto const &it : pendingEndorsements) {
@@ -136,6 +157,15 @@ void EndorsementClient::AddValidation(const uint64_t peer_client_id, const std::
 
 bool EndorsementClient::IsSatisfied() {
   return policy.IsSatisfied(client_ids_received);
+}
+
+void EndorsementClient::Reset() {
+  expectedValTxnDigest.clear();
+  expectedValTxn.Clear();
+  policy.Reset();
+  client_ids_received.clear();
+  endorsements.clear();
+  pendingEndorsements.clear();
 }
 
 } // namespace sintrstore

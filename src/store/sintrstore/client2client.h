@@ -62,7 +62,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   Client2Client(transport::Configuration *config, transport::Configuration *clients_config, Transport *transport,
       uint64_t client_id, int group, bool pingClients,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
-      TrueTime &timeServer, uint64_t client_transport_id);
+      TrueTime &timeServer, uint64_t client_transport_id, EndorsementClient *endorseClient);
   virtual ~Client2Client();
 
   virtual void ReceiveMessage(const TransportAddress &remote,
@@ -73,12 +73,12 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
   // start up the sintr validation for current transaction id and name 
   // sends BeginValidateTxnMessage to peers
-  void SendBeginValidateTxnMessage(uint64_t id, EndorsementClient *endorseClient, const std::string &txnState);
+  void SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState);
 
   // forward server read reply to other peers
   void ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
     const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
-    const proto::Dependency &dep);
+    const proto::Dependency &dep, bool hasDep);
 
   void SetFailureFlag(bool f) {
     failureActive = f;
@@ -131,7 +131,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   bool failureActive;
   // current transaction sequence number (to send to others)
   uint64_t client_seq_num;
-  // current endorsement object pointer so can inform client of received validations
+  // endorsement client can inform client of received validations
   EndorsementClient *endorseClient;
 
   // threads for validation

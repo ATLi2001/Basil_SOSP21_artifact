@@ -17,7 +17,7 @@ LIB-sintr-store := $(o)server.o $(LIB-latency) \
 	$(o)sintr-proto.o  $(o)common.o $(LIB-crypto) $(LIB-batched-sigs) $(LIB-bft-tapir-config) \
 	$(LIB-configuration) $(LIB-store-common) $(LIB-transport) $(o)phase1validator.o \
 	$(o)localbatchsigner.o $(o)sharedbatchsigner.o $(o)basicverifier.o \
-	$(o)localbatchverifier.o $(o)sharedbatchverifier.o
+	$(o)localbatchverifier.o $(o)sharedbatchverifier.o $(o)endorsement_policy.o
 
 LIB-sintr-validation := $(LIB-sintr-validation-client) $(LIB-sintr-validation-tpcc)
 

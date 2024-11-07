@@ -42,12 +42,12 @@ namespace sintrstore {
 Client2Client::Client2Client(transport::Configuration *config, transport::Configuration *clients_config, Transport *transport,
       uint64_t client_id, int group, bool pingClients,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
-      TrueTime &timeServer, uint64_t client_transport_id) :
+      TrueTime &timeServer, uint64_t client_transport_id, EndorsementClient *endorseClient) :
       PingInitiator(this, transport, clients_config->n),
       client_id(client_id), client_transport_id(client_transport_id), 
       transport(transport), config(config), clients_config(clients_config),
       group(group), timeServer(timeServer), pingClients(pingClients), params(params),
-      keyManager(keyManager), verifier(verifier) {
+      keyManager(keyManager), verifier(verifier), endorseClient(endorseClient) {
   
   // separate verifier from main client instance
   clients_verifier = new BasicVerifier(transport);
@@ -112,9 +112,8 @@ bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
   return true;
 }
 
-void Client2Client::SendBeginValidateTxnMessage(uint64_t id, EndorsementClient *endorseClient, const std::string &txnState) {
+void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState) {
   client_seq_num = id;
-  this->endorseClient = endorseClient;
 
   proto::BeginValidateTxnMessage beginValTxnMsg = proto::BeginValidateTxnMessage();
   beginValTxnMsg.set_client_id(client_id);
@@ -129,7 +128,7 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t id, EndorsementClient *
 
 void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
     const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
-    const proto::Dependency &dep) {
+    const proto::Dependency &dep, bool hasDep) {
   proto::ForwardReadResultMessage fwdReadResultMsg = proto::ForwardReadResultMessage();
   fwdReadResultMsg.set_client_id(client_id);
   fwdReadResultMsg.set_client_seq_num(client_seq_num);
@@ -149,7 +148,7 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
   }
 
   // this will contain the prepared txn dependency
-  if (dep.IsInitialized()) {
+  if (hasDep) {
     *fwdReadResultMsg.mutable_dep() = dep;
     // must be oneof write or signed write
     *fwdReadResultMsg.mutable_write() = proto::Write();
@@ -233,6 +232,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
     fwdReadResult = fwdReadResultMsg.fwd_read_result();
   }
 
+  proto::Write write;
   // if has dependency, then this is based on a prepared txn
   if (fwdReadResultMsg.has_dep()) {
     if (params.validateProofs && params.signedMessages && params.verifyDeps) {
@@ -246,11 +246,11 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
         return;
       }
     }
+    write = fwdReadResultMsg.dep().write();
   } 
   else {
     // otherwise can check committed proof and signature
 
-    proto::Write write;
     if (params.validateProofs && params.signedMessages) {
       // check server signature
       if (fwdReadResultMsg.has_signed_write()) {
@@ -298,7 +298,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
         
         std::string committedTxnDigest = TransactionDigest(fwdReadResultMsg.proof().txn(), params.hashDigest);
         if (!ValidateTransactionWrite(fwdReadResultMsg.proof(), &committedTxnDigest,
-            fwdReadResult.key(), write.committed_value(), write.committed_timestamp(),
+            write.key(), write.committed_value(), write.committed_timestamp(),
             config, params.signedMessages, keyManager, verifier)) {
           Debug(
             "Failed to validate committed value for forwarded read result from client id %lu, seq num %lu",
@@ -313,6 +313,21 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
 
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
+
+  // curr_key is essentially what the forwarding client is claiming is the key
+  // write contains the server's claim as to what the key is
+  // these two should match
+  if (curr_key != write.key()) {
+    Debug(
+      "Mismatch in forwarded key and the server key: from client id %lu, seq num %lu, forwarded key %s, server key %s",
+      curr_client_id, 
+      curr_client_seq_num,
+      BytesToHex(curr_key, 16).c_str(),
+      BytesToHex(write.key(), 16).c_str()
+    );
+    return;
+  }
+
   Debug(
     "HandleForwardReadResult: from client id %lu, seq num %lu, key %s, value %s", 
     curr_client_id, 
