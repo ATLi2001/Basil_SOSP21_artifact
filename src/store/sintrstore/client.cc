@@ -81,8 +81,8 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
   // create client for other clients
   // right now group is always 0, maybe configure later
   c2client = new Client2Client(
-    config, clients_config, transport, client_id, 0, pingReplicas, 
-    params, keyManager, verifier, timeServer, client_transport_id, endorseClient
+    config, clients_config, transport, client_id, client_transport_id, nshards, ngroups, 0, 
+    pingReplicas, params, keyManager, verifier, part, endorseClient
   );
 
   Debug("Sintr client [%lu] created! %lu %lu", client_id, nshards,
@@ -162,19 +162,21 @@ void Client::Begin(begin_callback bcb, begin_timeout_callback btcb,
     //std::cerr<< "BEGIN TX with client_seq_num: " << client_seq_num << std::endl;
     Debug("BEGIN [%lu]", client_seq_num);
 
+    uint64_t txnStartTime = timeServer.GetTime();
+
     // begin sintr validation
     endorseClient->Reset();
     endorseClient->SetClientSeqNum(client_seq_num);
     // dummy endorsement policy
     EndorsementPolicy policy(2);
     endorseClient->UpdateRequirement(policy);
-    c2client->SendBeginValidateTxnMessage(client_seq_num, txnState);
+    c2client->SendBeginValidateTxnMessage(client_seq_num, txnState, txnStartTime);
 
     txn = proto::Transaction();
     txn.set_client_id(client_id);
     txn.set_client_seq_num(client_seq_num);
     // Optimistically choose a read timestamp for all reads in this transaction
-    txn.mutable_timestamp()->set_timestamp(timeServer.GetTime());
+    txn.mutable_timestamp()->set_timestamp(txnStartTime);
     txn.mutable_timestamp()->set_id(client_id);
     bcb(client_seq_num);
   });
@@ -275,15 +277,13 @@ void Client::Commit(commit_callback ccb, commit_timeout_callback ctcb,
       std::sort(txn.mutable_write_set()->begin(), txn.mutable_write_set()->end(), sortWriteByKey);
     }
 
+    // also sort involved groups for endorsement comparisons
+    std::sort(txn.mutable_involved_groups()->begin(), txn.mutable_involved_groups()->end());
+
     // set expected endorsement digest
-    proto::ValidationTxn valTxn = proto::ValidationTxn();
-    valTxn.set_client_id(txn.client_id());
-    valTxn.set_client_seq_num(txn.client_seq_num());
-    *valTxn.mutable_read_set() = txn.read_set();
-    *valTxn.mutable_write_set() = txn.write_set();
-    std::string digest = ValidationDigest(valTxn, params.sintr_params.hashValDigest);
+    std::string digest = TransactionDigest(txn, params.hashDigest);
     if (params.sintr_params.debugEndorseCheck) {
-      endorseClient->DebugSetExpectedTxnOutput(valTxn);
+      endorseClient->DebugSetExpectedTxnOutput(txn);
     }
     endorseClient->SetExpectedTxnOutput(digest);
 
@@ -293,7 +293,7 @@ void Client::Commit(commit_callback ccb, commit_timeout_callback ctcb,
     req->ccb = ccb;
     req->ctcb = ctcb;
     req->callbackInvoked = false;
-    req->txnDigest = TransactionDigest(txn, params.hashDigest);
+    req->txnDigest = digest;
     req->timeout = timeout; //20000UL; //timeout;
     stats.IncrementList("txn_groups", txn.involved_groups().size());
 

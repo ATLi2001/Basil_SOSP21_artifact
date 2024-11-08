@@ -41,6 +41,7 @@
 #include "store/common/timestamp.h"
 #include "store/common/truetime.h"
 #include "store/common/transaction.h"
+#include "store/common/partitioner.h"
 #include "store/common/common-proto.pb.h"
 #include "store/sintrstore/sintr-proto.pb.h"
 #include "store/common/pinginitiator.h"
@@ -60,9 +61,9 @@ namespace sintrstore {
 class Client2Client : public TransportReceiver, public PingInitiator, public PingTransport {
  public:
   Client2Client(transport::Configuration *config, transport::Configuration *clients_config, Transport *transport,
-      uint64_t client_id, int group, bool pingClients,
+      uint64_t client_id, uint64_t client_transport_id, uint64_t nshards, uint64_t ngroups, int group, bool pingClients,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
-      TrueTime &timeServer, uint64_t client_transport_id, EndorsementClient *endorseClient);
+      Partitioner *part,  EndorsementClient *endorseClient);
   virtual ~Client2Client();
 
   virtual void ReceiveMessage(const TransportAddress &remote,
@@ -71,9 +72,10 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
   virtual bool SendPing(size_t replica, const PingMessage &ping);
 
-  // start up the sintr validation for current transaction id and name 
+  // start up the sintr validation for current transaction
+  // txnState should be parsable as proto::TxnState
   // sends BeginValidateTxnMessage to peers
-  void SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState);
+  void SendBeginValidateTxnMessage(uint64_t client_seq_num, const std::string &txnState, uint64_t txnStartTime);
 
   // forward server read reply to other peers
   void ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
@@ -88,9 +90,9 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
 
   // contains necessary information for ValidationClient to validate
   struct ValidationInfo {
-    ValidationInfo(uint64_t txn_client_id, uint64_t txn_client_seq_num, 
+    ValidationInfo(uint64_t txn_client_id, uint64_t txn_client_seq_num, Timestamp txn_ts,
         ValidationTransaction *valTxn, TransportAddress *remote) : 
-        txn_client_id(txn_client_id), txn_client_seq_num(txn_client_seq_num), 
+        txn_client_id(txn_client_id), txn_client_seq_num(txn_client_seq_num), txn_ts(txn_ts),
         valTxn(valTxn), remote(remote) {}
     ~ValidationInfo() {
       delete valTxn;
@@ -100,6 +102,8 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
     uint64_t txn_client_id;
     // sequence number of transaction on initiating client
     uint64_t txn_client_seq_num;
+    // timestamp chosen for this transaction
+    Timestamp txn_ts;
     // actual transaction that we can call Validate on
     ValidationTransaction *valTxn;
     // address of initiating client
@@ -121,13 +125,17 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   transport::Configuration *config;
   // client to client transport configuration state
   transport::Configuration *clients_config;
+  // Number of shards.
+  uint64_t nshards;
+  // Number of replica groups.
+  uint64_t ngroups;
   const int group; // which group this client belongs to
-  TrueTime &timeServer;
   const bool pingClients;
   const Parameters params;
   KeyManager *keyManager;
   Verifier *verifier;
   Verifier *clients_verifier;
+  Partitioner *part;
   bool failureActive;
   // current transaction sequence number (to send to others)
   uint64_t client_seq_num;

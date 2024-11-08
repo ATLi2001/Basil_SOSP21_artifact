@@ -289,8 +289,7 @@ DEFINE_validator(indicus_inject_failure_type, &ValidateInjectFailureType);
 DEFINE_uint64(sintr_max_val_threads, 1, "sintr max number of validation threads");
 DEFINE_bool(sintr_sign_fwd_read_results, true, "sintr sign forward read results");
 DEFINE_bool(sintr_sign_finish_validation, true, "sintr sign finish validation message");
-DEFINE_bool(sintr_hash_validation_digest, true, "sintr hash to compute validation txn digest");
-DEFINE_bool(sintr_debug_endorse_check, false, "sintr do a full debug validation txn endorsement check");
+DEFINE_bool(sintr_debug_endorse_check, true, "sintr do a full debug validation txn endorsement check");
 
 DEFINE_bool(debug_stats, false, "record stats related to debugging");
 
@@ -1035,7 +1034,6 @@ int main(int argc, char **argv) {
           FLAGS_sintr_max_val_threads,
           FLAGS_sintr_sign_fwd_read_results,
           FLAGS_sintr_sign_finish_validation,
-          FLAGS_sintr_hash_validation_digest,
           FLAGS_sintr_debug_endorse_check
         );
 

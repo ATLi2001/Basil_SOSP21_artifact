@@ -40,19 +40,20 @@
 namespace sintrstore {
 
 Client2Client::Client2Client(transport::Configuration *config, transport::Configuration *clients_config, Transport *transport,
-      uint64_t client_id, int group, bool pingClients,
+      uint64_t client_id, uint64_t client_transport_id, uint64_t nshards, uint64_t ngroups, int group, bool pingClients,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
-      TrueTime &timeServer, uint64_t client_transport_id, EndorsementClient *endorseClient) :
+      Partitioner *part, EndorsementClient *endorseClient) :
       PingInitiator(this, transport, clients_config->n),
       client_id(client_id), client_transport_id(client_transport_id), 
-      transport(transport), config(config), clients_config(clients_config),
-      group(group), timeServer(timeServer), pingClients(pingClients), params(params),
+      transport(transport), config(config), clients_config(clients_config), 
+      nshards(nshards), ngroups(ngroups),
+      group(group), part(part), pingClients(pingClients), params(params),
       keyManager(keyManager), verifier(verifier), endorseClient(endorseClient) {
   
   // separate verifier from main client instance
   clients_verifier = new BasicVerifier(transport);
 
-  valClient = new ValidationClient(client_id, params); 
+  valClient = new ValidationClient(client_id, nshards, ngroups, part); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
   transport->Register(this, *clients_config, group, client_transport_id); 
 
@@ -112,15 +113,17 @@ bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
   return true;
 }
 
-void Client2Client::SendBeginValidateTxnMessage(uint64_t id, const std::string &txnState) {
-  client_seq_num = id;
+void Client2Client::SendBeginValidateTxnMessage(uint64_t client_seq_num, const std::string &txnState, uint64_t txnStartTime) {
+  this->client_seq_num = client_seq_num;
 
   proto::BeginValidateTxnMessage beginValTxnMsg = proto::BeginValidateTxnMessage();
   beginValTxnMsg.set_client_id(client_id);
-  beginValTxnMsg.set_client_seq_num(id);
+  beginValTxnMsg.set_client_seq_num(client_seq_num);
   TxnState *protoTxnState = new TxnState();
   protoTxnState->ParseFromString(txnState);
   beginValTxnMsg.set_allocated_txn_state(protoTxnState);
+  beginValTxnMsg.mutable_timestamp()->set_timestamp(txnStartTime);
+  beginValTxnMsg.mutable_timestamp()->set_id(client_id);
 
   Debug("SendToAll beginValTxnMsg");
   transport->SendMessageToAll(this, beginValTxnMsg);
@@ -192,6 +195,7 @@ void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote
   uint64_t curr_client_id = beginValTxnMsg.client_id();
   uint64_t curr_client_seq_num = beginValTxnMsg.client_seq_num();
   TxnState txnState = beginValTxnMsg.txn_state();
+  Timestamp ts(beginValTxnMsg.timestamp());
   Debug(
     "HandleBeginValidateTxnMessage: from client id %lu, seq num %lu", 
     curr_client_id, 
@@ -199,7 +203,7 @@ void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote
   );
   ValidationTransaction *valTxn = valParseClient->Parse(txnState);
   TransportAddress *remoteCopy = remote.clone();
-  ValidationInfo *valInfo = new ValidationInfo(curr_client_id, curr_client_seq_num, std::move(valTxn), std::move(remoteCopy));
+  ValidationInfo *valInfo = new ValidationInfo(curr_client_id, curr_client_seq_num, ts, std::move(valTxn), std::move(remoteCopy));
   validationQueue.push(valInfo);
 }
 
@@ -233,6 +237,8 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
   }
 
   proto::Write write;
+  bool hasDep = false;
+  proto::Dependency dep;
   // if has dependency, then this is based on a prepared txn
   if (fwdReadResultMsg.has_dep()) {
     if (params.validateProofs && params.signedMessages && params.verifyDeps) {
@@ -246,6 +252,8 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
         return;
       }
     }
+    hasDep = true;
+    dep = fwdReadResultMsg.dep();
     write = fwdReadResultMsg.dep().write();
   } 
   else {
@@ -336,7 +344,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
     BytesToHex(curr_value, 16).c_str()
   );
   // tell valClient about this forwardedReadResult
-  valClient->ProcessForwardReadResult(curr_client_id, curr_client_seq_num, fwdReadResult);
+  valClient->ProcessForwardReadResult(curr_client_id, curr_client_seq_num, fwdReadResult, dep, hasDep);
 }
 
 void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg) {
@@ -386,27 +394,30 @@ void Client2Client::ValidationThreadFunction() {
     validationQueue.pop(valInfo);
     uint64_t curr_client_id = valInfo->txn_client_id;
     uint64_t curr_client_seq_num = valInfo->txn_client_seq_num;
+    Timestamp curr_ts = valInfo->txn_ts;
     ValidationTransaction *valTxn = valInfo->valTxn;
     std::cerr << std::this_thread::get_id() << " will validate for client " << curr_client_id 
               << ", seq num " << curr_client_seq_num << std::endl;
 
     valClient->SetThreadValTxnId(curr_client_id, curr_client_seq_num);
+    valClient->SetTxnTimestamp(curr_client_id, curr_client_seq_num, curr_ts);
 
     transaction_status_t result = valTxn->Validate(syncClient);
 
     if (result == COMMITTED) {
       Debug("Completed validation for client id %lu, seq num %lu", curr_client_id, curr_client_seq_num);
-      proto::ValidationTxn *txn = valClient->GetCompletedValTxn(curr_client_id, curr_client_seq_num);
+      proto::Transaction *txn = valClient->GetCompletedTxn(curr_client_id, curr_client_seq_num);
 
       // for consistent hashing results
       std::sort(txn->mutable_read_set()->begin(), txn->mutable_read_set()->end(), sortReadByKey);
       std::sort(txn->mutable_write_set()->begin(), txn->mutable_write_set()->end(), sortWriteByKey);
+      std::sort(txn->mutable_involved_groups()->begin(), txn->mutable_involved_groups()->end());
 
       proto::FinishValidateTxnMessage finishValTxnMsg = proto::FinishValidateTxnMessage();
       finishValTxnMsg.set_client_id(client_id);
 
       // only send over digest, not actual contents
-      std::string digest = ValidationDigest(*txn, params.sintr_params.hashValDigest);
+      std::string digest = TransactionDigest(*txn, params.hashDigest);
       proto::ValidationTxnDigest valTxnDigest = proto::ValidationTxnDigest(); 
       valTxnDigest.set_client_id(curr_client_id);
       valTxnDigest.set_client_seq_num(curr_client_seq_num);

@@ -45,9 +45,9 @@ class EndorsementClient {
   ~EndorsementClient();
 
   void SetClientSeqNum(uint64_t client_seq_num);
-  void SetExpectedTxnOutput(const std::string &expectedValTxnDigest);
-  void DebugSetExpectedTxnOutput(const proto::ValidationTxn &expectedValTxn);
-  void DebugCheck(const proto::ValidationTxn &valTxn);
+  void SetExpectedTxnOutput(const std::string &expectedTxnDigest);
+  void DebugSetExpectedTxnOutput(const proto::Transaction &expectedTxn);
+  void DebugCheck(const proto::Transaction &txn);
   void UpdateRequirement(EndorsementPolicy policy);
   void AddValidation(const uint64_t peer_client_id, const std::string &valTxnDigest, 
     const proto::SignedMessage &signedValTxnDigest);
@@ -63,9 +63,9 @@ class EndorsementClient {
   // transaction specific
   uint64_t client_seq_num;
   // expected validation transaction digest
-  std::string expectedValTxnDigest;
+  std::string expectedTxnDigest;
   // debug by checking entire validation txn
-  proto::ValidationTxn expectedValTxn;
+  proto::Transaction expectedTxn;
   // endorsement policy which must be satisfied
   EndorsementPolicy policy;
   // which peer clients have endorsed

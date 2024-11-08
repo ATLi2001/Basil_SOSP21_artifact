@@ -378,6 +378,7 @@ message BeginValidateTxnMessage {
   required uint64 client_id = 1;
   required uint64 client_seq_num = 2;
   required TxnState txn_state = 3;
+  required TimestampMessage timestamp = 4;
 }
 
 message ForwardReadResult {
@@ -404,14 +405,6 @@ message ForwardReadResultMessage {
   optional Dependency dep = 8;
 }
 
-// like the Transaction message type, but with less fields needed
-message ValidationTxn {
-  required uint64 client_id = 1;
-  required uint64 client_seq_num = 2;
-  repeated ReadMessage read_set = 3;
-  repeated WriteMessage write_set = 4;
-}
-
 message ValidationTxnDigest {
   required uint64 client_id = 1;
   required uint64 client_seq_num = 2;
@@ -426,7 +419,7 @@ message FinishValidateTxnMessage {
     SignedMessage signed_validation_txn_digest = 3;
   }
   // optionally can compare entire transaction directly
-  optional ValidationTxn val_txn = 4;
+  optional Transaction val_txn = 4;
 }
 
 message EndorsementPolicyMessage {

@@ -45,13 +45,14 @@ void EndorsementClient::SetClientSeqNum(uint64_t client_seq_num) {
   this->client_seq_num = client_seq_num;
 }
 
-void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedValTxnDigest) {
-  this->expectedValTxnDigest = expectedValTxnDigest;
+void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedTxnDigest) {
+  this->expectedTxnDigest = expectedTxnDigest;
   // add self as an endorsement
   client_ids_received.insert(client_id);
   proto::ValidationTxnDigest protoExpectedValTxnDigest;
   protoExpectedValTxnDigest.set_client_id(client_id);
   protoExpectedValTxnDigest.set_client_seq_num(client_seq_num);
+  protoExpectedValTxnDigest.set_digest(expectedTxnDigest);
   proto::SignedMessage signedMessage;
   SignMessage(
     &protoExpectedValTxnDigest, 
@@ -63,7 +64,7 @@ void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedValTxnDi
   
   // now also check pendingEndorsements
   for (auto const &it : pendingEndorsements) {
-    if (expectedValTxnDigest == it.second) {
+    if (expectedTxnDigest == it.second) {
       client_ids_received.insert(it.first);
     }
     else {
@@ -71,7 +72,7 @@ void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedValTxnDi
         "No match on pending endorsement from client id %lu, txn digest %s; expected txn digest %s",
         it.first,
         BytesToHex(it.second, 16).c_str(),
-        BytesToHex(expectedValTxnDigest, 16).c_str()
+        BytesToHex(expectedTxnDigest, 16).c_str()
       );
     }
   }
@@ -79,48 +80,85 @@ void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedValTxnDi
   pendingEndorsements.clear();
 }
 
-void EndorsementClient::DebugSetExpectedTxnOutput(const proto::ValidationTxn &expectedValTxn) {
-  this->expectedValTxn = expectedValTxn;
+void EndorsementClient::DebugSetExpectedTxnOutput(const proto::Transaction &expectedTxn) {
+  this->expectedTxn = expectedTxn;
 }
-void EndorsementClient::DebugCheck(const proto::ValidationTxn &valTxn) {
-  if (!expectedValTxn.IsInitialized()) {
+void EndorsementClient::DebugCheck(const proto::Transaction &txn) {
+  if (!expectedTxn.IsInitialized()) {
     return;
   }
-  if (valTxn.client_id() != expectedValTxn.client_id()) {
-    Debug("client id mismatch: received %lu, expected %lu", valTxn.client_id(), expectedValTxn.client_id());
+  Debug(
+    "DebugCheck for EndorsementClient client id %lu, seq num %lu",
+    expectedTxn.client_id(),
+    expectedTxn.client_seq_num()
+  );
+
+  if (txn.client_id() != expectedTxn.client_id()) {
+    Debug("client id mismatch: received %lu, expected %lu", txn.client_id(), expectedTxn.client_id());
   }
-  if (valTxn.client_seq_num() != expectedValTxn.client_seq_num()) {
-    Debug("client seq num mismatch: received %lu, expected %lu", valTxn.client_seq_num(), expectedValTxn.client_seq_num());
+
+  if (txn.client_seq_num() != expectedTxn.client_seq_num()) {
+    Debug("client seq num mismatch: received %lu, expected %lu", txn.client_seq_num(), expectedTxn.client_seq_num());
   }
-  if (valTxn.read_set_size() != expectedValTxn.read_set_size()) {
-    Debug("read set mismatch: received size %d, expected size %d", valTxn.read_set_size(), expectedValTxn.read_set_size());
+
+  if (txn.involved_groups_size() != expectedTxn.involved_groups_size()) {
+    Debug("involved groups mismatch: received size %d, expected size %d", txn.involved_groups_size(), expectedTxn.involved_groups_size());
   }
-  for (int i = 0; i < expectedValTxn.read_set_size(); i++) {
-    if (!google::protobuf::util::MessageDifferencer::Equals(valTxn.read_set(i), expectedValTxn.read_set(i))) {
+  for (int i = 0; i < expectedTxn.involved_groups_size(); i++) {
+    if (txn.involved_groups(i) != expectedTxn.involved_groups(i)) {
+      Debug("involved groups mismatch: received group %d, expected group %d", txn.involved_groups(i), expectedTxn.involved_groups(i));
+    }
+  }
+
+  if (txn.read_set_size() != expectedTxn.read_set_size()) {
+    Debug("read set mismatch: received size %d, expected size %d", txn.read_set_size(), expectedTxn.read_set_size());
+  }
+  for (int i = 0; i < expectedTxn.read_set_size(); i++) {
+    if (!google::protobuf::util::MessageDifferencer::Equals(txn.read_set(i), expectedTxn.read_set(i))) {
       Debug(
         "read set mismatch: received key %s, ts %lu.%lu, expected key %s, ts %lu.%lu",
-        BytesToHex(valTxn.read_set(i).key(), 16).c_str(),
-        valTxn.read_set(i).readtime().timestamp(),
-        valTxn.read_set(i).readtime().id(),
-        BytesToHex(expectedValTxn.read_set(i).key(), 16).c_str(),
-        expectedValTxn.read_set(i).readtime().timestamp(),
-        expectedValTxn.read_set(i).readtime().id()
+        BytesToHex(txn.read_set(i).key(), 16).c_str(),
+        txn.read_set(i).readtime().timestamp(),
+        txn.read_set(i).readtime().id(),
+        BytesToHex(expectedTxn.read_set(i).key(), 16).c_str(),
+        expectedTxn.read_set(i).readtime().timestamp(),
+        expectedTxn.read_set(i).readtime().id()
       );
     }
   }
-  if (valTxn.write_set_size() != expectedValTxn.write_set_size()) {
-    Debug("write set mismatch: received size %d, expected size %d", valTxn.write_set_size(), expectedValTxn.write_set_size());
+
+  if (txn.write_set_size() != expectedTxn.write_set_size()) {
+    Debug("write set mismatch: received size %d, expected size %d", txn.write_set_size(), expectedTxn.write_set_size());
   }
-  for (int i = 0; i < expectedValTxn.write_set_size(); i++) {
-    if (!google::protobuf::util::MessageDifferencer::Equals(valTxn.write_set(i), expectedValTxn.write_set(i))) {
+  for (int i = 0; i < expectedTxn.write_set_size(); i++) {
+    if (!google::protobuf::util::MessageDifferencer::Equals(txn.write_set(i), expectedTxn.write_set(i))) {
       Debug(
         "write set mismatch: received key %s, value %s, expected key %s, value %s",
-        BytesToHex(valTxn.write_set(i).key(), 16).c_str(),
-        BytesToHex(valTxn.write_set(i).value(), 16).c_str(),
-        BytesToHex(expectedValTxn.write_set(i).key(), 16).c_str(),
-        BytesToHex(expectedValTxn.write_set(i).value(), 16).c_str()
+        BytesToHex(txn.write_set(i).key(), 16).c_str(),
+        BytesToHex(txn.write_set(i).value(), 16).c_str(),
+        BytesToHex(expectedTxn.write_set(i).key(), 16).c_str(),
+        BytesToHex(expectedTxn.write_set(i).value(), 16).c_str()
       );
     }
+  }
+
+  if (txn.deps_size() != expectedTxn.deps_size()) {
+    Debug("dependencies mismatch: received size %d, expected size %d", txn.deps_size(), expectedTxn.deps_size());
+  }
+  for (int i = 0; i < expectedTxn.deps_size(); i++) {
+    if (!google::protobuf::util::MessageDifferencer::Equals(txn.deps(i), expectedTxn.deps(i))) {
+      Debug("dependencies mismatch: index %d", i);
+    }
+  }
+
+  if (!google::protobuf::util::MessageDifferencer::Equals(txn.timestamp(), expectedTxn.timestamp())) {
+    Debug(
+      "timestamp mismatch: received %lu.%lu, expected %lu.%lu",
+      txn.timestamp().timestamp(),
+      txn.timestamp().id(),
+      expectedTxn.timestamp().timestamp(),
+      expectedTxn.timestamp().id()
+    );
   }
 }
 
@@ -132,9 +170,9 @@ void EndorsementClient::AddValidation(const uint64_t peer_client_id, const std::
     const proto::SignedMessage &signedValTxnDigest) {
   // if new peer
   if (client_ids_received.find(peer_client_id) == client_ids_received.end()) {
-    if (expectedValTxnDigest.length() > 0) {
+    if (expectedTxnDigest.length() > 0) {
       // must match expected digest
-      if (valTxnDigest == expectedValTxnDigest) {
+      if (valTxnDigest == expectedTxnDigest) {
         client_ids_received.insert(peer_client_id);
         endorsements.push_back(signedValTxnDigest);
       }
@@ -143,14 +181,14 @@ void EndorsementClient::AddValidation(const uint64_t peer_client_id, const std::
           "No match on endorsement from client id %lu, txn digest %s; expected txn digest %s",
           peer_client_id,
           BytesToHex(valTxnDigest, 16).c_str(),
-          BytesToHex(expectedValTxnDigest, 16).c_str()
+          BytesToHex(expectedTxnDigest, 16).c_str()
         );
       }
     }
     else {
       // possible for expected digest to be uninitialized, in which case record a pending endorsement
       pendingEndorsements[peer_client_id] = valTxnDigest;
-      Debug("No expectedValTxnDigest yet");
+      Debug("No expectedTxnDigest yet");
     }
   }
 }
@@ -160,8 +198,8 @@ bool EndorsementClient::IsSatisfied() {
 }
 
 void EndorsementClient::Reset() {
-  expectedValTxnDigest.clear();
-  expectedValTxn.Clear();
+  expectedTxnDigest.clear();
+  expectedTxn.Clear();
   policy.Reset();
   client_ids_received.clear();
   endorsements.clear();
