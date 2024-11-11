@@ -45,6 +45,10 @@ void EndorsementClient::SetClientSeqNum(uint64_t client_seq_num) {
   this->client_seq_num = client_seq_num;
 }
 
+std::vector<proto::SignedMessage> EndorsementClient::GetEndorsements() {
+  return endorsements;
+}
+
 void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedTxnDigest) {
   this->expectedTxnDigest = expectedTxnDigest;
   // add self as an endorsement

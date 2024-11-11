@@ -201,6 +201,7 @@ message Writeback {
     CommittedProof conflict = 6;   // fast path abort
   }
   optional uint64 p2_view = 7;
+  optional SignedMessages endorsements = 8;
 }
 
 //does not include Transaction. Client can supply Transaction itself.

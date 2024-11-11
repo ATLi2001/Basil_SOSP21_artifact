@@ -1436,6 +1436,7 @@ void Server::HandleWriteback(const TransportAddress &remote,
   //   return;
   // }
 
+  Debug("received endorsements of size %d", msg.endorsements().sig_msgs_size());
 
   proto::Transaction *txn;
   const std::string *txnDigest;

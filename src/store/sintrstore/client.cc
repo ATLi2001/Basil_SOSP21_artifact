@@ -715,7 +715,12 @@ void Client::Writeback(PendingRequest *req) {
     });
     return;
   }
-  // TODO: handle endorsement
+
+  proto::SignedMessages protoEndorsements;
+  std::vector<proto::SignedMessage> endorsements = endorseClient->GetEndorsements();
+  for (auto &endorsement : endorsements) {
+    *protoEndorsements.add_sig_msgs() = endorsement;
+  }
 
   //total_writebacks++;
   Debug("WRITEBACK[%lu:%lu] result %s", client_id, req->id, req->decision ?  "ABORT" : "COMMIT");
@@ -756,7 +761,7 @@ void Client::Writeback(PendingRequest *req) {
   for (auto group : txn.involved_groups()) {
     bclient[group]->Writeback(client_seq_num, txn, req->txnDigest,
         req->decision, req->fast, req->conflict_flag, req->conflict, req->p1ReplySigsGrouped,
-        req->p2ReplySigsGrouped, req->decision_view);
+        req->p2ReplySigsGrouped, req->decision_view, protoEndorsements);
   }
 
   if (!req->callbackInvoked) {

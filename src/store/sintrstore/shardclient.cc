@@ -480,7 +480,8 @@ void ShardClient::Phase2Equivocate(uint64_t id,
 //TODO: make more efficient by swapping sigs instead of copying.
 void ShardClient::Writeback(uint64_t id, const proto::Transaction &transaction, const std::string &txnDigest,
   proto::CommitDecision decision, bool fast, bool conflict_flag, const proto::CommittedProof &conflict,
-  const proto::GroupedSignatures &p1Sigs, const proto::GroupedSignatures &p2Sigs, uint64_t decision_view) {
+  const proto::GroupedSignatures &p1Sigs, const proto::GroupedSignatures &p2Sigs, uint64_t decision_view,
+  const proto::SignedMessages &endorsements) {
 
   writeback.Clear();
   // create commit request
@@ -512,6 +513,9 @@ void ShardClient::Writeback(uint64_t id, const proto::Transaction &transaction, 
   // if(id == 0) { //in FB a replica may not have seen the txn... not necessary since all failed clients wouldve sent to everyone first...
   //   *writeback.mutable_txn() = transaction;
   // }
+
+  // set endorsements
+  *writeback.mutable_endorsements() = endorsements;
 
   transport->SendMessageToGroup(this, group, writeback);
   if(id > 0) {
