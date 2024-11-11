@@ -48,7 +48,9 @@ class EndorsementClient {
   void SetExpectedTxnOutput(const std::string &expectedTxnDigest);
   void DebugSetExpectedTxnOutput(const proto::Transaction &expectedTxn);
   void DebugCheck(const proto::Transaction &txn);
-  void UpdateRequirement(EndorsementPolicy policy);
+  // update current policy by merging with passed in policy
+  // returns the difference between current policy and passed in policy
+  EndorsementPolicy UpdateRequirement(const EndorsementPolicy &policy);
   void AddValidation(const uint64_t peer_client_id, const std::string &valTxnDigest, 
     const proto::SignedMessage &signedValTxnDigest);
   bool IsSatisfied();

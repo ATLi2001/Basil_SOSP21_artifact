@@ -53,6 +53,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <set>
 
 #include "tbb/concurrent_queue.h"
 
@@ -80,7 +81,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   // forward server read reply to other peers
   void ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
     const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
-    const proto::Dependency &dep, bool hasDep);
+    const proto::Dependency &dep, bool hasDep, const EndorsementPolicy &policy);
 
   void SetFailureFlag(bool f) {
     failureActive = f;
@@ -139,6 +140,10 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   bool failureActive;
   // current transaction sequence number (to send to others)
   uint64_t client_seq_num;
+  // current set of transport ids begin validation message has been sent to
+  std::set<int> beginValSent;
+  // track most recently sent begin validation message
+  proto::BeginValidateTxnMessage sentBeginValTxnMsg;
   // endorsement client can inform client of received validations
   EndorsementClient *endorseClient;
 

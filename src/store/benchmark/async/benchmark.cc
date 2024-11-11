@@ -1034,7 +1034,8 @@ int main(int argc, char **argv) {
           FLAGS_sintr_max_val_threads,
           FLAGS_sintr_sign_fwd_read_results,
           FLAGS_sintr_sign_finish_validation,
-          FLAGS_sintr_debug_endorse_check
+          FLAGS_sintr_debug_endorse_check,
+          FLAGS_num_client_threads
         );
 
         sintrstore::Parameters params(FLAGS_indicus_sign_messages,

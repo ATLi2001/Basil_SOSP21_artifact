@@ -98,11 +98,30 @@ bool EndorsementPolicy::IsSatisfied(const std::set<uint64_t> &endorsements) cons
 }
 
 void EndorsementPolicy::MergePolicy(const EndorsementPolicy &other) {
-  if (other.GetWeight() > weight) {
-    weight = other.GetWeight();
+  if (other.weight > weight) {
+    weight = other.weight;
   }
-  std::set<uint64_t> other_set = other.GetAccessControlList();
-  access_control_list.insert(other_set.begin(), other_set.end());
+  access_control_list.insert(other.access_control_list.begin(), other.access_control_list.end());
+}
+
+EndorsementPolicy EndorsementPolicy::DifferenceToPolicy(const EndorsementPolicy &other) const {
+  if (*this >= other) {
+    return EndorsementPolicy();
+  }
+
+  uint64_t additional_weight = 0;
+  if (weight < other.weight) {
+    additional_weight = other.weight - weight;
+  }
+
+  std::set<uint64_t> additional_access_control;
+  std::set_difference(
+    other.access_control_list.begin(), other.access_control_list.end(), 
+    access_control_list.begin(), access_control_list.end(),
+    std::inserter(additional_access_control, additional_access_control.begin())
+  );
+
+  return EndorsementPolicy(additional_weight, additional_access_control);
 }
 
 void EndorsementPolicy::SerializeToProtoMessage(proto::EndorsementPolicyMessage *msg) const {

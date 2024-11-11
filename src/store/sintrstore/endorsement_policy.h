@@ -56,6 +56,9 @@ class EndorsementPolicy {
   bool IsSatisfied(const std::set<uint64_t> &endorsements) const;
   // merge this EndorsementPolicy with other
   void MergePolicy(const EndorsementPolicy &other);
+  // how much more does this EndorsementPolicy need to become a superset of other?
+  // note that if this policy is already a superset, return is empty policy
+  EndorsementPolicy DifferenceToPolicy(const EndorsementPolicy &other) const;
   // serialize to proto version
   void SerializeToProtoMessage(proto::EndorsementPolicyMessage *msg) const;
   void Reset();

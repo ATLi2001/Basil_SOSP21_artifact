@@ -162,8 +162,10 @@ void EndorsementClient::DebugCheck(const proto::Transaction &txn) {
   }
 }
 
-void EndorsementClient::UpdateRequirement(EndorsementPolicy policy) {
+EndorsementPolicy EndorsementClient::UpdateRequirement(const EndorsementPolicy &policy) {
+  EndorsementPolicy out = this->policy.DifferenceToPolicy(policy);
   this->policy.MergePolicy(policy);
+  return out;
 }
 
 void EndorsementClient::AddValidation(const uint64_t peer_client_id, const std::string &valTxnDigest,

@@ -49,6 +49,7 @@
 #include "store/sintrstore/phase1validator.h"
 #include "store/common/pinginitiator.h"
 #include "store/sintrstore/common.h"
+#include "store/sintrstore/endorsement_policy.h"
 
 #include <map>
 #include <string>
@@ -61,7 +62,8 @@ static int successful_invoke = 0;
 
 typedef std::function<void(int, const std::string &,
     const std::string &, const Timestamp &, const proto::Dependency &,
-    bool, bool, const proto::CommittedProof &, const std::string &, const std::string &)> read_callback;
+    bool, bool, const proto::CommittedProof &, const std::string &, const std::string &,
+    const EndorsementPolicy &)> read_callback;
 typedef std::function<void(int, const std::string &)> read_timeout_callback;
 
 typedef std::function<void(proto::CommitDecision, bool, bool,
@@ -203,6 +205,8 @@ virtual void Phase2Equivocate_Simulate(uint64_t id, const proto::Transaction &tx
     // this may be a proto::Write or signed version of it
     std::string maxSerializedWrite;
     std::string maxSerializedWriteTypeName;
+    // endorsement policy corresponding to maxValue
+    EndorsementPolicy maxPolicy;
   };
 
   struct PendingPhase1 {

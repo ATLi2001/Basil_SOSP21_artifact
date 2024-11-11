@@ -116,22 +116,45 @@ bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
 void Client2Client::SendBeginValidateTxnMessage(uint64_t client_seq_num, const std::string &txnState, uint64_t txnStartTime) {
   this->client_seq_num = client_seq_num;
 
-  proto::BeginValidateTxnMessage beginValTxnMsg = proto::BeginValidateTxnMessage();
-  beginValTxnMsg.set_client_id(client_id);
-  beginValTxnMsg.set_client_seq_num(client_seq_num);
+  sentBeginValTxnMsg = proto::BeginValidateTxnMessage();
+  sentBeginValTxnMsg.set_client_id(client_id);
+  sentBeginValTxnMsg.set_client_seq_num(client_seq_num);
   TxnState *protoTxnState = new TxnState();
   protoTxnState->ParseFromString(txnState);
-  beginValTxnMsg.set_allocated_txn_state(protoTxnState);
-  beginValTxnMsg.mutable_timestamp()->set_timestamp(txnStartTime);
-  beginValTxnMsg.mutable_timestamp()->set_id(client_id);
+  sentBeginValTxnMsg.set_allocated_txn_state(protoTxnState);
+  sentBeginValTxnMsg.mutable_timestamp()->set_timestamp(txnStartTime);
+  sentBeginValTxnMsg.mutable_timestamp()->set_id(client_id);
 
   Debug("SendToAll beginValTxnMsg");
-  transport->SendMessageToAll(this, beginValTxnMsg);
+  for (int i = 0; i < clients_config->n; i++) {
+    beginValSent.insert(i);
+  }
+  transport->SendMessageToAll(this, sentBeginValTxnMsg);
 }
 
 void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
     const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
-    const proto::Dependency &dep, bool hasDep) {
+    const proto::Dependency &dep, bool hasDep, const EndorsementPolicy &policy) {
+  
+  EndorsementPolicy diffPolicy = endorseClient->UpdateRequirement(policy);
+  if (diffPolicy > EndorsementPolicy()) {
+    Debug("Initiating more beginValTxnMsg");
+    // need to initiate more endorsements
+    int numAdditional = static_cast<int>(diffPolicy.GetWeight());
+    for (const auto &client_id : diffPolicy.GetAccessControlList()) {
+      uint64_t transport_id = ClientIdToTransportId(client_id, params.sintr_params.clientThreadsPerProcess);
+      beginValSent.insert(transport_id);
+      numAdditional--;
+      transport->SendMessageToReplica(this, transport_id, sentBeginValTxnMsg);
+    }
+    if (numAdditional > 0) {
+      // send
+    }
+  }
+  else {
+    Debug("Received policy with weight %lu", policy.GetWeight());
+  }
+
   proto::ForwardReadResultMessage fwdReadResultMsg = proto::ForwardReadResultMessage();
   fwdReadResultMsg.set_client_id(client_id);
   fwdReadResultMsg.set_client_seq_num(client_seq_num);
@@ -176,6 +199,8 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
       *fwdReadResultMsg.mutable_write() = write;
     }
     else {
+      // this should only happen if value is empty
+      UW_ASSERT(value.length() == 0);
       *fwdReadResultMsg.mutable_write() = write;
     }
   }
@@ -325,7 +350,8 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
   // curr_key is essentially what the forwarding client is claiming is the key
   // write contains the server's claim as to what the key is
   // these two should match
-  if (curr_key != write.key()) {
+  // also if value is empty, then no need to check since server makes no claims about it
+  if (curr_value.length() > 0 && curr_key != write.key()) {
     Debug(
       "Mismatch in forwarded key and the server key: from client id %lu, seq num %lu, forwarded key %s, server key %s",
       curr_client_id, 
@@ -473,6 +499,4 @@ void Client2Client::CreateHMACedMessage(const ::google::protobuf::Message &msg, 
   signedMessage.set_signature(hmacs.SerializeAsString());
 }
 
-
 } // namespace sintrstore
-
