@@ -76,8 +76,10 @@ class EndorsementClient {
   // confirmed endorsement signatures to send to server
   std::vector<proto::SignedMessage> endorsements;
   // also maintain pending endorsements if endorsement comes back before expectedValTxnDigest is set
-  // map from client id to digest
-  std::map<uint64_t, std::string> pendingEndorsements;
+  // map from client id to (digest, signed message)
+  std::map<uint64_t, std::pair<std::string, proto::SignedMessage>> pendingEndorsements;
+  // debug pending transactions
+  std::vector<proto::Transaction> pendingTxns;
 };
 
 } // namespace sintrstore

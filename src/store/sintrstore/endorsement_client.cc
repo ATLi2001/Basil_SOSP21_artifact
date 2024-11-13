@@ -68,14 +68,15 @@ void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedTxnDiges
   
   // now also check pendingEndorsements
   for (auto const &it : pendingEndorsements) {
-    if (expectedTxnDigest == it.second) {
+    if (expectedTxnDigest == it.second.first) {
       client_ids_received.insert(it.first);
+      endorsements.push_back(it.second.second);
     }
     else {
       Debug(
         "No match on pending endorsement from client id %lu, txn digest %s; expected txn digest %s",
         it.first,
-        BytesToHex(it.second, 16).c_str(),
+        BytesToHex(it.second.first, 16).c_str(),
         BytesToHex(expectedTxnDigest, 16).c_str()
       );
     }
@@ -86,9 +87,16 @@ void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedTxnDiges
 
 void EndorsementClient::DebugSetExpectedTxnOutput(const proto::Transaction &expectedTxn) {
   this->expectedTxn = expectedTxn;
+
+  for (auto const &txn : pendingTxns) {
+    DebugCheck(txn);
+  }
+  pendingTxns.clear();
 }
+
 void EndorsementClient::DebugCheck(const proto::Transaction &txn) {
   if (!expectedTxn.IsInitialized()) {
+    pendingTxns.push_back(txn);
     return;
   }
   Debug(
@@ -193,7 +201,7 @@ void EndorsementClient::AddValidation(const uint64_t peer_client_id, const std::
     }
     else {
       // possible for expected digest to be uninitialized, in which case record a pending endorsement
-      pendingEndorsements[peer_client_id] = valTxnDigest;
+      pendingEndorsements[peer_client_id] = std::make_pair(valTxnDigest, signedValTxnDigest);
       Debug("No expectedTxnDigest yet");
     }
   }

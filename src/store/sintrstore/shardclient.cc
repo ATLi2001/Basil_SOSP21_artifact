@@ -839,6 +839,9 @@ void ShardClient::HandleReadReplyCB2(proto::ReadReply* reply, proto::Write *writ
         if (preparedItr->second.second >= req->rds) {
           req->maxTs = preparedItr->first;
           req->maxValue = preparedItr->second.first.prepared_value();
+          if (preparedItr->second.first.has_prepared_policy()) {
+            req->maxPolicy = preparedItr->second.first.prepared_policy();
+          }
           // if we are going to be forwarding a prepared value, no need for committed proof and signed write
           req->maxCommittedProof.Clear();
           req->maxSerializedWrite.clear();
@@ -1002,6 +1005,9 @@ void ShardClient::HandleReadReply(const proto::ReadReply &reply) {
         if (preparedItr->second.second >= req->rds) {
           req->maxTs = preparedItr->first;
           req->maxValue = preparedItr->second.first.prepared_value();
+          if (preparedItr->second.first.has_prepared_policy()) {
+            req->maxPolicy = preparedItr->second.first.prepared_policy();
+          }
           // if we are going to be forwarding a prepared value, no need for committed proof and signed write
           req->maxCommittedProof.Clear();
           req->maxSerializedWrite.clear();
