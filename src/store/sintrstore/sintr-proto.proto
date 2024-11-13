@@ -424,6 +424,7 @@ message FinishValidateTxnMessage {
 }
 
 message EndorsementPolicyMessage {
-  optional uint64 weight = 1;
-  repeated uint64 access_control_list = 2; 
+  required string policy_id = 1;
+  optional uint64 weight = 2;
+  repeated uint64 access_control_list = 3;
 }

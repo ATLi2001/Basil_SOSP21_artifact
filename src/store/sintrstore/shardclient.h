@@ -63,7 +63,7 @@ static int successful_invoke = 0;
 typedef std::function<void(int, const std::string &,
     const std::string &, const Timestamp &, const proto::Dependency &,
     bool, bool, const proto::CommittedProof &, const std::string &, const std::string &,
-    const EndorsementPolicy &)> read_callback;
+    const proto::EndorsementPolicyMessage &)> read_callback;
 typedef std::function<void(int, const std::string &)> read_timeout_callback;
 
 typedef std::function<void(proto::CommitDecision, bool, bool,
@@ -207,7 +207,7 @@ virtual void Phase2Equivocate_Simulate(uint64_t id, const proto::Transaction &tx
     std::string maxSerializedWrite;
     std::string maxSerializedWriteTypeName;
     // endorsement policy corresponding to maxValue
-    EndorsementPolicy maxPolicy;
+    proto::EndorsementPolicyMessage maxPolicy;
   };
 
   struct PendingPhase1 {

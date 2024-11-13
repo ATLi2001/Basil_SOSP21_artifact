@@ -609,7 +609,7 @@ bool ShardClient::BufferGet(const std::string &key, read_callback rcb) {
       Debug("[group %i] Key %s was written with val %s.", group,
           BytesToHex(key, 16).c_str(), BytesToHex(write.value(), 16).c_str());
       rcb(REPLY_OK, key, write.value(), Timestamp(), proto::Dependency(),
-          false, false, proto::CommittedProof(), std::string(), std::string(), EndorsementPolicy());
+          false, false, proto::CommittedProof(), std::string(), std::string(), proto::EndorsementPolicyMessage());
       return true;
     }
   }
@@ -620,7 +620,7 @@ bool ShardClient::BufferGet(const std::string &key, read_callback rcb) {
           BytesToHex(key, 16).c_str(), read.readtime().timestamp(),
           read.readtime().id());
       rcb(REPLY_OK, key, readValues[key], read.readtime(), proto::Dependency(),
-          false, false, proto::CommittedProof(), std::string(), std::string(), EndorsementPolicy());
+          false, false, proto::CommittedProof(), std::string(), std::string(), proto::EndorsementPolicyMessage());
       return true;
     }
   }
@@ -799,7 +799,7 @@ void ShardClient::HandleReadReplyCB2(proto::ReadReply* reply, proto::Write *writ
         req->maxSerializedWriteTypeName = reply->write().GetTypeName();
       }
       if (write->has_committed_policy()) {
-        req->maxPolicy = EndorsementPolicy(write->committed_policy());
+        req->maxPolicy = write->committed_policy();
       }
     }
     req->firstCommittedReply = false;
@@ -964,7 +964,7 @@ void ShardClient::HandleReadReply(const proto::ReadReply &reply) {
         req->maxSerializedWriteTypeName = reply.write().GetTypeName();
       }
       if (write->has_committed_policy()) {
-        req->maxPolicy = EndorsementPolicy(write->committed_policy());
+        req->maxPolicy = write->committed_policy();
       }
     }
     req->firstCommittedReply = false;

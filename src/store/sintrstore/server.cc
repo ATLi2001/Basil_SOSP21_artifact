@@ -553,6 +553,7 @@ void Server::HandleRead(const TransportAddress &remote,
     if (!policyExists) {
       Panic("cannot find policy %s in policyStore", tsVal.second.policyId.c_str());
     }
+    readReply->mutable_write()->mutable_committed_policy()->set_policy_id(tsVal.second.policyId);
     tsPolicy.second.SerializeToProtoMessage(readReply->mutable_write()->mutable_committed_policy());
 
     if (params.validateProofs) {
@@ -641,6 +642,7 @@ void Server::HandleRead(const TransportAddress &remote,
               if (!policyExists) {
                 Panic("cannot find policy %s in policyStore", preparedPolicyId.c_str());
               }
+              readReply->mutable_write()->mutable_prepared_policy()->set_policy_id(preparedPolicyId);
               tsPolicy.second.SerializeToProtoMessage(readReply->mutable_write()->mutable_prepared_policy());
             }
           }

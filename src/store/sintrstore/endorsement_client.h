@@ -57,11 +57,19 @@ class EndorsementClient {
   bool IsSatisfied();
   void Reset();
 
+  EndorsementPolicy GetPolicyFromCache(const std::string &key);
+  void UpdateKeyPolicyIdCache(const std::string &key, const std::string &policyId);
+  void UpdatePolicyCache(const std::string &policyId, const EndorsementPolicy &policy);
+
  private:
   // this client information
   const uint64_t client_id;
   const uint64_t client_transport_id;
   KeyManager *keyManager;
+
+  // client side cache of policy store
+  std::map<std::string, std::string> keyPolicyIdCache;
+  std::map<std::string, EndorsementPolicy> policyCache;
   
   // transaction specific
   uint64_t client_seq_num;
