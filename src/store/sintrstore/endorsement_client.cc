@@ -45,6 +45,10 @@ void EndorsementClient::SetClientSeqNum(uint64_t client_seq_num) {
   this->client_seq_num = client_seq_num;
 }
 
+EndorsementPolicy EndorsementClient::GetPolicy() {
+  return policy;
+}
+
 std::vector<proto::SignedMessage> EndorsementClient::GetEndorsements() {
   return endorsements;
 }
@@ -208,7 +212,11 @@ void EndorsementClient::AddValidation(const uint64_t peer_client_id, const std::
 }
 
 bool EndorsementClient::IsSatisfied() {
-  return policy.IsSatisfied(client_ids_received);
+  bool satisfied = policy.IsSatisfied(client_ids_received);
+  if (!satisfied) {
+    Debug("policy not satisfied, need %lu endorsementts, received %lu", policy.GetWeight(), client_ids_received.size());
+  }
+  return satisfied;
 }
 
 void EndorsementClient::Reset() {

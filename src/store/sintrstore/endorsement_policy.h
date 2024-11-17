@@ -43,6 +43,7 @@ class EndorsementPolicy {
   EndorsementPolicy(const proto::EndorsementPolicyMessage &endorsePolicyMsg);
   ~EndorsementPolicy();
 
+  void operator= (const EndorsementPolicy &other);
   bool operator== (const EndorsementPolicy &other) const;
   bool operator!= (const EndorsementPolicy &other) const;
   bool operator> (const EndorsementPolicy &other) const;

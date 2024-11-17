@@ -47,6 +47,11 @@ EndorsementPolicy::EndorsementPolicy(const proto::EndorsementPolicyMessage &endo
 }
 EndorsementPolicy::~EndorsementPolicy() {}
 
+void EndorsementPolicy::operator= (const EndorsementPolicy &other) {
+  weight = other.weight;
+  access_control_list = other.access_control_list;
+}
+
 bool EndorsementPolicy::operator== (const EndorsementPolicy &other) const {
   return (weight == other.weight) && (access_control_list == other.access_control_list);
 }

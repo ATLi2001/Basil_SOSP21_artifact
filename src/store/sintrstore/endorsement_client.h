@@ -44,6 +44,7 @@ class EndorsementClient {
   EndorsementClient(uint64_t client_id, uint64_t client_transport_id, KeyManager *keyManager, EndorsementPolicy policy);
   ~EndorsementClient();
 
+  EndorsementPolicy GetPolicy();
   std::vector<proto::SignedMessage> GetEndorsements();
   void SetClientSeqNum(uint64_t client_seq_num);
   void SetExpectedTxnOutput(const std::string &expectedTxnDigest);

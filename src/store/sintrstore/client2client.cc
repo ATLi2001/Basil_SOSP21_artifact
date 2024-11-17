@@ -76,8 +76,9 @@ Client2Client::~Client2Client() {
   for (auto t : valThreads) {
     t->join();
   }
-  // valThread->join();
   delete valClient;
+  delete clients_verifier;
+  delete valParseClient;
 }
 
 void Client2Client::ReceiveMessage(const TransportAddress &remote,
@@ -125,7 +126,7 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t client_seq_num, const s
   sentBeginValTxnMsg.mutable_timestamp()->set_timestamp(txnStartTime);
   sentBeginValTxnMsg.mutable_timestamp()->set_id(client_id);
 
-  Debug("SendToAll beginValTxnMsg");
+  Debug("SendToAll beginValTxnMsg client id %lu, seq num %lu", client_id, client_seq_num);
   for (int i = 0; i < clients_config->n; i++) {
     beginValSent.insert(i);
   }
@@ -178,6 +179,7 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
     *fwdReadResultMsg.mutable_dep() = dep;
     // must be oneof write or signed write
     *fwdReadResultMsg.mutable_write() = proto::Write();
+    UW_ASSERT(dep.IsInitialized());
   }
   else {
     if (params.validateProofs) {
@@ -185,6 +187,9 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
         *fwdReadResultMsg.mutable_proof() = proof;
       }
       // if no proof then it is possible the value is empty
+      else {
+        UW_ASSERT(value.length() == 0);
+      }
     }
 
     // depending on if signatures are enabled and if the value is non empty
@@ -346,6 +351,23 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
 
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
+
+  // if there is an actual value, expect matches
+  if (curr_value.length() > 0) {
+    UW_ASSERT(write.key() == curr_key);
+    if (hasDep) {
+      UW_ASSERT(write.prepared_value() == curr_value);
+      UW_ASSERT(google::protobuf::util::MessageDifferencer::Equals(write.prepared_timestamp(), fwdReadResult.timestamp()));
+    }
+    else {
+      UW_ASSERT(write.committed_value() == curr_value);
+      UW_ASSERT(google::protobuf::util::MessageDifferencer::Equals(write.committed_timestamp(), fwdReadResult.timestamp()));
+    }
+  }
+  // otherwise the write should be empty
+  else {
+    UW_ASSERT(!write.has_key());
+  }
 
   // curr_key is essentially what the forwarding client is claiming is the key
   // write contains the server's claim as to what the key is

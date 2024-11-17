@@ -222,9 +222,12 @@ void Client::Get(const std::string &key, get_callback gcb,
         ReadMessage *read = txn.add_read_set();
         read->set_key(key);
         ts.serialize(read->mutable_readtime());
-        EndorsementPolicy policy(policyMsg);
-        endorseClient->UpdateKeyPolicyIdCache(key, policyMsg.policy_id());
-        endorseClient->UpdatePolicyCache(policyMsg.policy_id(), policy);
+        EndorsementPolicy policy; 
+        if (policyMsg.IsInitialized()) {
+          policy = EndorsementPolicy(policyMsg);
+          endorseClient->UpdateKeyPolicyIdCache(key, policyMsg.policy_id());
+          endorseClient->UpdatePolicyCache(policyMsg.policy_id(), policy);
+        }
         c2client->ForwardReadResultMessage(key, val, ts, proof, serializedWrite, serializedWriteTypeName, dep, hasDep, policy);
       }
       if (hasDep) {
@@ -712,7 +715,6 @@ void Client::Writeback(PendingRequest *req) {
 
   // if endorsement is not satisfied yet, add back to event loop
   if (!endorseClient->IsSatisfied()) {
-    Debug("endorse not sat, Timer(Writeback)");
     transport->Timer(0, [this, req]() {
       Writeback(req);
     });

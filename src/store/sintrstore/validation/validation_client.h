@@ -48,6 +48,11 @@ typedef std::function<void(int, const std::string &)> validation_read_timeout_ca
 
 // this acts as a dummy workload client for validation of one transaction at a time
 // validation transactions will invoke this through a SyncClient interface
+// note that this class is shared memory between threads
+// in particular, each thread where a validation transaction is being validated (client2client::ValidationThreadFunction)
+// will call Begin, Get, Put, Commit, Abort (these through SyncClient interface), 
+// SetThreadValTxnId, SetTxnTimestamp, GetCompletedTxn
+// on a different thread, client2client will call ProcessForwardReadResult upon receiving forwarded read results
 class ValidationClient : public ::Client {
  public:
   ValidationClient(uint64_t client_id, uint64_t nshards, uint64_t ngroups, Partitioner *part);
@@ -77,6 +82,7 @@ class ValidationClient : public ::Client {
 
   // Set the timestamp for the txn
   // timestamp was chosen by initiating client
+  // this is expected to be called before the validation transaction begins
   void SetTxnTimestamp(uint64_t txn_client_id, uint64_t txn_client_seq_num, const Timestamp &ts);
 
   // either fill one of the pending validation gets or put into readset for future validation get
@@ -99,14 +105,31 @@ class ValidationClient : public ::Client {
     validation_read_callback vrcb;
     validation_read_timeout_callback vrtcb;
   };
+
+  // for a (txn_client_id, txn_client_seq_num) pair, keep track of all relevant transaction state
+  struct AllValidationTxnState {
+    AllValidationTxnState() {}
+    AllValidationTxnState(uint64_t txn_client_id, uint64_t txn_client_seq_num, proto::Transaction *txn) : 
+      txn_client_id(txn_client_id), txn_client_seq_num(txn_client_seq_num), txn(txn) {}
+    ~AllValidationTxnState() {}
+    
+    uint64_t txn_client_id;
+    uint64_t txn_client_seq_num;
+    // this tracks the readset/writeset etc. of the transaction
+    proto::Transaction *txn;
+    // this tracks the locally buffered key-value pairs
+    std::map<std::string, std::string> readValues;
+    // this tracks the pending validation gets
+    std::vector<PendingValidationGet *> pendingGets;
+  };
   
-  bool BufferGet(uint64_t txn_client_id, uint64_t txn_client_seq_num, const std::string &key, 
+  bool BufferGet(const AllValidationTxnState &allValTxnState, const std::string &key, 
     validation_read_callback vrcb);
   // add (key, ts) to the readset of transaction txn_id
-  void AddReadset(uint64_t txn_client_id, uint64_t txn_client_seq_num, const std::string &key, 
+  void AddReadset(AllValidationTxnState *allValTxnState, const std::string &key, 
     const std::string &value, const Timestamp &ts);
   // add dep to the dependencies of transaction 
-  void AddDep(uint64_t txn_client_id, uint64_t txn_client_seq_num, const proto::Dependency &dep);
+  void AddDep(AllValidationTxnState *allValTxnState, const proto::Dependency &dep);
   // is group g involved in txn
   bool IsTxnParticipant(proto::Transaction *txn, int g);
   // read from threadValTxnIds and set the passed in pointers to the current threads txn id 
@@ -121,31 +144,13 @@ class ValidationClient : public ::Client {
   uint64_t ngroups;
   // for computing txn involved groups
   Partitioner *part;
-  // parameters
-  // Parameters params;
-  // // ID of client that initiated the transaction 
-  // uint64_t txn_client_id;
-  // // Ongoing transaction ID.
-  // uint64_t txn_client_seq_num;
 
   // map from thread id to (txn_client_id, txn_client_seq_num) tracks what each thread is doing
   typedef tbb::concurrent_hash_map<std::thread::id, std::pair<uint64_t, uint64_t>> threadValTxnIdsMap;
   threadValTxnIdsMap threadValTxnIds;
-  // map from (transaction client id, transaction client seq num) to transaction timestamp
-  // this timestamp was chosen by the initiating client
-  typedef tbb::concurrent_hash_map<std::string, Timestamp> txnTimestampsMap;
-  txnTimestampsMap txnTimestamps;
-  // map from (transaction client id, transaction client seq num) to transaction
-  // each key corresponds to a ValidationTransaction yet to be validated, one of which is currently ongoing validation
-  // each value corresponds to the transaction state that is being tracked
-  typedef tbb::concurrent_hash_map<std::string, proto::Transaction *> pendingValTxnStatesMap;
-  pendingValTxnStatesMap pendingValTxnStates;
-  // map from (transaction client id, transaction client seq num) to map of buffered key-value pairs
-  typedef tbb::concurrent_hash_map<std::string, std::map<std::string, std::string>> readValuesMap;
-  readValuesMap readValues;
-  // map from (txn_client_id, txn_client_seq_num) to vector of pending validation gets
-  typedef tbb::concurrent_hash_map<std::string, std::vector<PendingValidationGet *>> pendingGetsMap;
-  pendingGetsMap pendingGets;
+  // map from (txn_client_id, txn_client_seq_num) to all relevant validation txn state
+  typedef tbb::concurrent_hash_map<std::string, AllValidationTxnState> allValTxnStatesMap;
+  allValTxnStatesMap allValTxnStates;
 };
 
 } // namespace sintrstore

@@ -154,6 +154,7 @@ Server::~Server() {
   //Latency_Dump(&(store.storeLockLat));
   Notice("Freeing verifier.");
   delete verifier;
+  delete clients_verifier;
    //if(params.mainThreadDispatching) committedMutex.lock();
   for (const auto &c : committed) {   ///XXX technically not threadsafe
     delete c.second;
@@ -502,6 +503,7 @@ void Server::Load(const std::string &key, const std::string &value,
   std::pair<Timestamp, EndorsementPolicy> tsPolicy;
   bool exists = policyStore.get(policyId, tsPolicy);
   if (!exists) {
+    Debug("Adding policy %s to policyStore", policyId.c_str());
     policyStore.put(policyId, EndorsementPolicy(2), timestamp);
   }
   store.put(key, val, timestamp);
@@ -548,13 +550,14 @@ void Server::HandleRead(const TransportAddress &remote,
     tsVal.first.serialize(readReply->mutable_write()->mutable_committed_timestamp());
 
     // get policy from policyStore
-    std::pair<Timestamp, EndorsementPolicy> tsPolicy;
-    bool policyExists = policyStore.get(tsVal.second.policyId, ts, tsPolicy);
-    if (!policyExists) {
-      Panic("cannot find policy %s in policyStore", tsVal.second.policyId.c_str());
-    }
-    readReply->mutable_write()->mutable_committed_policy()->set_policy_id(tsVal.second.policyId);
-    tsPolicy.second.SerializeToProtoMessage(readReply->mutable_write()->mutable_committed_policy());
+    // std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+    // bool policyExists = policyStore.get(tsVal.second.policyId, ts, tsPolicy);
+    // if (!policyExists) {
+    //   Panic("cannot find policy %s in policyStore", tsVal.second.policyId.c_str());
+    // }
+    // Debug("policy %s for committed key %s", tsVal.second.policyId.c_str(), BytesToHex(msg.key(), 16).c_str());
+    // readReply->mutable_write()->mutable_committed_policy()->set_policy_id(tsVal.second.policyId);
+    // tsPolicy.second.SerializeToProtoMessage(readReply->mutable_write()->mutable_committed_policy());
 
     if (params.validateProofs) {
       *readReply->mutable_proof() = *tsVal.second.proof;
@@ -620,11 +623,11 @@ void Server::HandleRead(const TransportAddress &remote,
 
           if (mostRecent != nullptr) {
             std::string preparedValue;
-            std::string preparedPolicyId;
+            // std::string preparedPolicyId;
             for (const auto &w : mostRecent->write_set()) {
               if (w.key() == msg.key()) {
                 preparedValue = w.value();
-                preparedPolicyId = GetWritePolicyId(w, "0");
+                // preparedPolicyId = GetWritePolicyId(w, "0");
                 break;
               }
             }
@@ -637,13 +640,14 @@ void Server::HandleRead(const TransportAddress &remote,
               *readReply->mutable_write()->mutable_prepared_timestamp() = mostRecent->timestamp();
               *readReply->mutable_write()->mutable_prepared_txn_digest() = TransactionDigest(*mostRecent, params.hashDigest);
               // get policy from policyStore
-              std::pair<Timestamp, EndorsementPolicy> tsPolicy;
-              bool policyExists = policyStore.get(preparedPolicyId, tsPolicy);
-              if (!policyExists) {
-                Panic("cannot find policy %s in policyStore", preparedPolicyId.c_str());
-              }
-              readReply->mutable_write()->mutable_prepared_policy()->set_policy_id(preparedPolicyId);
-              tsPolicy.second.SerializeToProtoMessage(readReply->mutable_write()->mutable_prepared_policy());
+              // std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+              // bool policyExists = policyStore.get(preparedPolicyId, tsPolicy);
+              // if (!policyExists) {
+              //   Panic("cannot find policy %s in policyStore", preparedPolicyId.c_str());
+              // }
+              // Debug("policy %s for prepared key %s", preparedPolicyId.c_str(), BytesToHex(msg.key(), 16).c_str());
+              // readReply->mutable_write()->mutable_prepared_policy()->set_policy_id(preparedPolicyId);
+              // tsPolicy.second.SerializeToProtoMessage(readReply->mutable_write()->mutable_prepared_policy());
             }
           }
         }
@@ -1537,6 +1541,7 @@ void Server::HandleWriteback(const TransportAddress &remote,
     }
     // compute policy for this txn
     EndorsementPolicy policy = ExtractPolicy(txn);
+    Debug("Extracted policy with weight %lu for txn from client id %lu, seq num %lu", policy.GetWeight(), txn->client_id(), txn->client_seq_num());
     if (!ValidateEndorsements(policy, msg.endorsements())) {
       Debug("Failed to validate endorsements for txn from client id %lu, seq num %lu", txn->client_id(), txn->client_seq_num());
       return WritebackCallback(&msg, txnDigest, txn, (void*) false);
@@ -1566,6 +1571,7 @@ void Server::HandleWriteback(const TransportAddress &remote,
             }
             else{
               Debug("2: Taking non-batch branch p1 commit");
+              Debug("txn involved groups size %lu", txn->involved_groups_size());
               asyncValidateP1Replies(msg.decision(),
                   true, txn, txnDigest, msg.p1_sigs(), keyManager, &config, myProcessId,
                   myResult, verifier, std::move(mcb), transport, true);
@@ -5313,20 +5319,22 @@ std::string Server::GetWritePolicyId(const WriteMessage &write, const std::strin
 }
 
 EndorsementPolicy Server::ExtractPolicy(const proto::Transaction *txn) {
-  EndorsementPolicy extractedPolicy;
+  EndorsementPolicy extractedPolicy(2);
   for (const auto &write : txn->write_set()) {
     if (!IsKeyOwned(write.key())) {
       continue;
     }
 
-    std::string policyId = GetWritePolicyId(write, "0");
-    std::pair<Timestamp, EndorsementPolicy> tsPolicy;
-    bool exists = policyStore.get(policyId, tsPolicy);
-    if (!exists) {
-      Panic("cannot find policy %s in policyStore", policyId.c_str());
-    }
+    Debug("Extracting policy 0 for key %s", BytesToHex(write.key(), 16).c_str());
+    // std::string policyId = GetWritePolicyId(write, "0");
+    // Debug("Extracting policy %s for key %s", policyId.c_str(), BytesToHex(write.key(), 16).c_str());
+    // std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+    // bool exists = policyStore.get(policyId, tsPolicy);
+    // if (!exists) {
+    //   Panic("cannot find policy %s in policyStore", policyId.c_str());
+    // }
 
-    extractedPolicy.MergePolicy(tsPolicy.second);
+    // extractedPolicy.MergePolicy(tsPolicy.second);
   }
 
   for (const auto &read : txn->read_set()) {
@@ -5334,19 +5342,22 @@ EndorsementPolicy Server::ExtractPolicy(const proto::Transaction *txn) {
       continue;
     }
 
-    std::pair<Timestamp, Server::Value> tsVal;
-    bool exists = store.get(read.key(), tsVal);
-    if (!exists) {
-      Panic("cannot find key %s in store", read.key().c_str());
-    }
+    // std::pair<Timestamp, Server::Value> tsVal;
+    // bool exists = store.get(read.key(), tsVal);
+    // if (!exists) {
+    //   Panic("cannot find key %s in store", read.key().c_str());
+    // }
 
-    std::pair<Timestamp, EndorsementPolicy> tsPolicy;
-    exists = policyStore.get(tsVal.second.policyId, tsPolicy);
-    if (!exists) {
-      Panic("cannot find policy %s in policyStore", tsVal.second.policyId.c_str());
-    }
+    // Debug("Extracting policy %s for key %s", tsVal.second.policyId.c_str(), BytesToHex(read.key(), 16).c_str());
+    Debug("Extracting policy 0 for key %s", BytesToHex(read.key(), 16).c_str());
 
-    extractedPolicy.MergePolicy(tsPolicy.second);
+    // std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+    // exists = policyStore.get(tsVal.second.policyId, tsPolicy);
+    // if (!exists) {
+    //   Panic("cannot find policy %s in policyStore", tsVal.second.policyId.c_str());
+    // }
+
+    // extractedPolicy.MergePolicy(tsPolicy.second);
   }
 
   return extractedPolicy;
@@ -5362,6 +5373,10 @@ bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::
       endorsement.data(), 
       endorsement.signature())
     ) {
+      return false;
+    }
+    // cannot have empty data
+    if (endorsement.data().length() == 0) {
       return false;
     }
     // then check that data is all same as well
