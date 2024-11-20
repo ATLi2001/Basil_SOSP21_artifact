@@ -125,7 +125,8 @@ class ShardClient : public TransportReceiver, public PingInitiator, public PingT
       uint32_t timeout);
 
   virtual void Phase1(uint64_t id, const proto::Transaction &transaction, const std::string &txnDigest,
-    phase1_callback pcb, phase1_timeout_callback ptcb, relayP1_callback rcb, finishConflictCB fcb, uint32_t timeout);
+    phase1_callback pcb, phase1_timeout_callback ptcb, relayP1_callback rcb, finishConflictCB fcb, uint32_t timeout,
+    const proto::SignedMessages &endorsements);
   virtual void StopP1(uint64_t client_seq_num);
   virtual void Phase2(uint64_t id, const proto::Transaction &transaction,
       const std::string &txnDigest, proto::CommitDecision decision,
@@ -141,7 +142,7 @@ virtual void Phase2Equivocate_Simulate(uint64_t id, const proto::Transaction &tx
   virtual void Writeback(uint64_t id, const proto::Transaction &transaction, const std::string &txnDigest,
     proto::CommitDecision decision, bool fast, bool conflict_flag, const proto::CommittedProof &conflict,
     const proto::GroupedSignatures &p1Sigs, const proto::GroupedSignatures &p2Sigs, 
-    uint64_t decision_view = 0UL, const proto::SignedMessages &endorsements = proto::SignedMessages());
+    uint64_t decision_view = 0UL);
   //overloaded function for fallback
   virtual void WritebackFB(const proto::Transaction &transaction, const std::string &txnDigest,
       proto::CommitDecision decision, bool fast, const proto::CommittedProof &conflict,

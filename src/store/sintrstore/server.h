@@ -389,6 +389,8 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
     return static_cast<int>((*part)(key, numShards, groupIdx, dummyTxnGroups) % numGroups) == groupIdx;
   }
 
+  // perform check on endorsements in the Phase1 msg, using txnDigest to go get the txn from ongoingMap
+  bool EndorsementCheck(const proto::Phase1 *msg, const std::string &txnDigest);
   // get policy id from a write
   // either it will be in the write, or get it from the store
   uint64_t GetWritePolicyId(const WriteMessage &write, uint64_t defaultPolicyId);

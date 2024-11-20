@@ -860,6 +860,8 @@ void Server::HandlePhase1(const TransportAddress &remote,
     proto::Phase1 &msg) {
   //dummyTx = msg.txn(); //PURELY TESTING PURPOSES!!: NOTE WARNING
 
+  UW_ASSERT(msg.endorsements().sig_msgs_size() == 2);
+
   std::string txnDigest = TransactionDigest(msg.txn(), params.hashDigest); //could parallelize it too hypothetically
 
   //if(waiting.count(txnDigest) > 0){ Panic("P1 did eventually arrive");}
@@ -1024,6 +1026,12 @@ void Server::HandlePhase1(const TransportAddress &remote,
 //TODO: move p1Decision into this function (not sendp1: Then, can unlock here.)
 void Server::HandlePhase1CB(proto::Phase1 *msg, proto::ConcurrencyControl::Result result,
   const proto::CommittedProof* &committedProof, std::string &txnDigest, const TransportAddress &remote, const proto::Transaction *abstain_conflict, bool replicaGossip){
+
+  if (result == proto::ConcurrencyControl::COMMIT && msg->has_endorsements()) {
+    if (!EndorsementCheck(msg, txnDigest)) {
+      Panic("Endorsement check failed for txn %s.", BytesToHex(txnDigest, 16).c_str());
+    }
+  }
 
   if (result != proto::ConcurrencyControl::WAIT && !replicaGossip) { //forwarded P1 needs no reply.
     //XXX setting client time outs for Fallback
@@ -1531,22 +1539,6 @@ void Server::HandleWriteback(const TransportAddress &remote,
 
   Debug("WRITEBACK[%s] with decision %d.",
       BytesToHex(*txnDigest, 16).c_str(), msg.decision());
-  
-  Debug("received endorsements of size %d", msg.endorsements().sig_msgs_size());
-  // Verify endorsements
-  if (params.sintr_params.signFinishValidation) {
-    if (!msg.has_endorsements()) {
-      Debug("Missing endorsements for txn from client id %lu, seq num %lu", txn->client_id(), txn->client_seq_num());
-      return WritebackCallback(&msg, txnDigest, txn, (void*) false);
-    }
-    // compute policy for this txn
-    EndorsementPolicy policy = ExtractPolicy(txn);
-    Debug("Extracted policy with weight %lu for txn from client id %lu, seq num %lu", policy.GetWeight(), txn->client_id(), txn->client_seq_num());
-    if (!ValidateEndorsements(policy, msg.endorsements())) {
-      Panic("Failed to validate endorsements for txn from client id %lu, seq num %lu", txn->client_id(), txn->client_seq_num());
-      return WritebackCallback(&msg, txnDigest, txn, (void*) false);
-    }
-  }
 
   //Verifying signatures
   //XXX batchVerification branches are currently deprecated
@@ -1571,7 +1563,6 @@ void Server::HandleWriteback(const TransportAddress &remote,
             }
             else{
               Debug("2: Taking non-batch branch p1 commit");
-              Debug("txn involved groups size %lu", txn->involved_groups_size());
               asyncValidateP1Replies(msg.decision(),
                   true, txn, txnDigest, msg.p1_sigs(), keyManager, &config, myProcessId,
                   myResult, verifier, std::move(mcb), transport, true);
@@ -5301,6 +5292,19 @@ void Server::ProcessMoveView(const std::string &txnDigest, uint64_t proposed_vie
   q.release();
 }
 
+bool Server::EndorsementCheck(const proto::Phase1 *msg, const std::string &txnDigest) {
+  ongoingMap::const_accessor a;
+  if(!ongoing.find(a, txnDigest)){
+    Panic("EndorsementCheck cannot find transaction for txnDigest %s", BytesToHex(txnDigest, 16).c_str());
+  }
+
+  proto::Transaction *txn = a->second;
+  EndorsementPolicy policy = ExtractPolicy(txn);
+  a.release();
+
+  return ValidateEndorsements(policy, msg->endorsements());
+}
+
 uint64_t Server::GetWritePolicyId(const WriteMessage &write, uint64_t defaultPolicyId) {
   // if (write.has_policy()) {
   //   return write.policy();
@@ -5338,7 +5342,7 @@ EndorsementPolicy Server::ExtractPolicy(const proto::Transaction *txn) {
     // }
 
     extractedPolicy.MergePolicy(tmpPolicyStore.at(policyId));
-    std::cerr << "extracting policy 0 for key " << BytesToHex(write.key(), 16) << std::endl;
+    // std::cerr << "extracting policy 0 for key " << BytesToHex(write.key(), 16) << std::endl;
     // extractedPolicy.MergePolicy(a->second);
 
     // extractedPolicy.MergePolicy(tsPolicy.second);
@@ -5371,7 +5375,7 @@ EndorsementPolicy Server::ExtractPolicy(const proto::Transaction *txn) {
     //   Panic("cannot find policy %lu in policyStore", policyId);
     // }
 
-    std::cerr << "extracting policy 0 for key " << BytesToHex(read.key(), 16) << std::endl;
+    // std::cerr << "extracting policy 0 for key " << BytesToHex(read.key(), 16) << std::endl;
     extractedPolicy.MergePolicy(tmpPolicyStore.at(policyId));
 
     // extractedPolicy.MergePolicy(a->second);
@@ -5391,12 +5395,10 @@ bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::
       endorsement.data(), 
       endorsement.signature())
     ) {
-      Panic("bad verify for client %lu", endorsement.process_id());
       return false;
     }
     // cannot have empty data
     if (endorsement.data().length() == 0) {
-      Panic("no data for client %lu", endorsement.process_id());
       return false;
     }
     // then check that data is all same as well
@@ -5404,7 +5406,6 @@ bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::
       txnDigest = endorsement.data();
     } 
     else if (txnDigest != endorsement.data()) {
-      Panic("data mismatch for client %lu", endorsement.process_id());
       return false;
     }
 

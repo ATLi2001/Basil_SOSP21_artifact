@@ -177,7 +177,8 @@ void ShardClient::Put(uint64_t id, const std::string &key,
 
 
 void ShardClient::Phase1(uint64_t id, const proto::Transaction &transaction, const std::string &txnDigest,
-  phase1_callback pcb, phase1_timeout_callback ptcb, relayP1_callback rcb, finishConflictCB fcb, uint32_t timeout) {
+  phase1_callback pcb, phase1_timeout_callback ptcb, relayP1_callback rcb, finishConflictCB fcb, uint32_t timeout,
+  const proto::SignedMessages &endorsements) {
   Debug("[group %i] Sending PHASE1 [%lu]", group, id);
   uint64_t reqId = lastReqId++;
   client_seq_num_mapping[id].pendingP1_id = reqId;
@@ -205,6 +206,7 @@ void ShardClient::Phase1(uint64_t id, const proto::Transaction &transaction, con
   phase1.set_req_id(reqId);
   *phase1.mutable_txn() = transaction;
   phase1.set_replica_gossip(false);
+  *phase1.mutable_endorsements() = endorsements;
 
 
   if(failureActive && params.injectFailure.type == InjectFailureType::CLIENT_SEND_PARTIAL_P1){
@@ -480,8 +482,7 @@ void ShardClient::Phase2Equivocate(uint64_t id,
 //TODO: make more efficient by swapping sigs instead of copying.
 void ShardClient::Writeback(uint64_t id, const proto::Transaction &transaction, const std::string &txnDigest,
   proto::CommitDecision decision, bool fast, bool conflict_flag, const proto::CommittedProof &conflict,
-  const proto::GroupedSignatures &p1Sigs, const proto::GroupedSignatures &p2Sigs, uint64_t decision_view,
-  const proto::SignedMessages &endorsements) {
+  const proto::GroupedSignatures &p1Sigs, const proto::GroupedSignatures &p2Sigs, uint64_t decision_view) {
 
   writeback.Clear();
   // create commit request
@@ -513,9 +514,6 @@ void ShardClient::Writeback(uint64_t id, const proto::Transaction &transaction, 
   // if(id == 0) { //in FB a replica may not have seen the txn... not necessary since all failed clients wouldve sent to everyone first...
   //   *writeback.mutable_txn() = transaction;
   // }
-
-  // set endorsements
-  *writeback.mutable_endorsements() = endorsements;
 
   transport->SendMessageToGroup(this, group, writeback);
   if(id > 0) {

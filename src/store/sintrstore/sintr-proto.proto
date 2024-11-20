@@ -113,6 +113,7 @@ message Phase1 {
   required Transaction txn = 2;
   optional bool crash_failure = 3;
   optional bool replica_gossip = 4;
+  optional SignedMessages endorsements = 5;
 }
 
 
@@ -201,7 +202,6 @@ message Writeback {
     CommittedProof conflict = 6;   // fast path abort
   }
   optional uint64 p2_view = 7;
-  optional SignedMessages endorsements = 8;
 }
 
 //does not include Transaction. Client can supply Transaction itself.

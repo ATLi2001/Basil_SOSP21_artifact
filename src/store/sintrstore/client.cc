@@ -309,6 +309,20 @@ void Client::Commit(commit_callback ccb, commit_timeout_callback ctcb,
 }
 
 void Client::Phase1(PendingRequest *req) {
+  // if endorsement is not satisfied yet, add back to event loop
+  if (!endorseClient->IsSatisfied()) {
+    transport->Timer(0, [this, req]() {
+      Phase1(req);
+    });
+    return;
+  }
+
+  proto::SignedMessages protoEndorsements;
+  std::vector<proto::SignedMessage> endorsements = endorseClient->GetEndorsements();
+  for (auto &endorsement : endorsements) {
+    *protoEndorsements.add_sig_msgs() = endorsement;
+  }
+
   Debug("PHASE1 [%lu:%lu] for txn_id %s at TS %lu", client_id, client_seq_num,
       BytesToHex(TransactionDigest(req->txn, params.hashDigest), 16).c_str(), txn.timestamp().timestamp());
 
@@ -324,7 +338,7 @@ void Client::Phase1(PendingRequest *req) {
           std::placeholders::_1),
         std::bind(&Client::RelayP1callback, this, req->id, std::placeholders::_1, std::placeholders::_2),
         std::bind(&Client::FinishConflict, this, req->id, std::placeholders::_1, std::placeholders::_2),
-        req->timeout);
+        req->timeout, protoEndorsements);
     req->outstandingPhase1s++;
   }
   //schedule timeout for when we allow starting FB P1.
@@ -712,21 +726,6 @@ void Client::WritebackProcessing(PendingRequest *req){
 }
 
 void Client::Writeback(PendingRequest *req) {
-
-  // if endorsement is not satisfied yet, add back to event loop
-  if (!endorseClient->IsSatisfied()) {
-    transport->Timer(0, [this, req]() {
-      Writeback(req);
-    });
-    return;
-  }
-
-  proto::SignedMessages protoEndorsements;
-  std::vector<proto::SignedMessage> endorsements = endorseClient->GetEndorsements();
-  for (auto &endorsement : endorsements) {
-    *protoEndorsements.add_sig_msgs() = endorsement;
-  }
-
   //total_writebacks++;
   Debug("WRITEBACK[%lu:%lu] result %s", client_id, req->id, req->decision ?  "ABORT" : "COMMIT");
   req->startedWriteback = true;
@@ -766,7 +765,7 @@ void Client::Writeback(PendingRequest *req) {
   for (auto group : txn.involved_groups()) {
     bclient[group]->Writeback(client_seq_num, txn, req->txnDigest,
         req->decision, req->fast, req->conflict_flag, req->conflict, req->p1ReplySigsGrouped,
-        req->p2ReplySigsGrouped, req->decision_view, protoEndorsements);
+        req->p2ReplySigsGrouped, req->decision_view);
   }
 
   if (!req->callbackInvoked) {
