@@ -45,6 +45,7 @@
 #include "store/sintrstore/batchsigner.h"
 #include "store/sintrstore/verifier.h"
 #include "store/sintrstore/endorsement_policy.h"
+#include "store/common/backend/versionstore_generic_safe.h"
 #include <sys/time.h>
 
 #include <set>
@@ -112,7 +113,7 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
   struct Value {
     std::string val;
     const proto::CommittedProof *proof;
-    std::string policyId;
+    uint64_t policyId;
   };
   void ReceiveMessageInternal(const TransportAddress &remote,
       const std::string &type, const std::string &data,
@@ -390,7 +391,7 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
 
   // get policy id from a write
   // either it will be in the write, or get it from the store
-  std::string GetWritePolicyId(const WriteMessage &write, const std::string &defaultPolicyId = std::string());
+  uint64_t GetWritePolicyId(const WriteMessage &write, uint64_t defaultPolicyId);
   // extract the policy from a transaction readset writeset
   EndorsementPolicy ExtractPolicy(const proto::Transaction *txn);
   // validate endorsements have valid signatures and matching data, and satisfy the policy
@@ -505,8 +506,8 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
 
 // DATA STRUCTURES
 
-  VersionedKVStore<Timestamp, Value> store;
-  VersionedKVStore<Timestamp, EndorsementPolicy> policyStore;
+  VersionedKVStoreGeneric<std::string, Timestamp, Value> store;
+  VersionedKVStoreGeneric<uint64_t, Timestamp, EndorsementPolicy> policyStore;
   // Key -> V
   //std::unordered_map<std::string, std::set<std::tuple<Timestamp, Timestamp, const proto::CommittedProof *>>> committedReads;
   typedef std::tuple<Timestamp, Timestamp, const proto::CommittedProof *> committedRead;

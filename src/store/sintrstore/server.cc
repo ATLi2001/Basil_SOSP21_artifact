@@ -498,12 +498,12 @@ void Server::Load(const std::string &key, const std::string &value,
   UW_ASSERT(committedItr != committed.end());
   val.proof = committedItr->second;
   // TODO: actually set policy
-  std::string policyId("0");
+  uint64_t policyId = 0;
   val.policyId = policyId;
   std::pair<Timestamp, EndorsementPolicy> tsPolicy;
   bool exists = policyStore.get(policyId, tsPolicy);
   if (!exists) {
-    Debug("Adding policy %s to policyStore", policyId.c_str());
+    Debug("Adding policy %lu to policyStore", policyId);
     policyStore.put(policyId, EndorsementPolicy(2), timestamp);
   }
   store.put(key, val, timestamp);
@@ -1543,7 +1543,7 @@ void Server::HandleWriteback(const TransportAddress &remote,
     EndorsementPolicy policy = ExtractPolicy(txn);
     Debug("Extracted policy with weight %lu for txn from client id %lu, seq num %lu", policy.GetWeight(), txn->client_id(), txn->client_seq_num());
     if (!ValidateEndorsements(policy, msg.endorsements())) {
-      Debug("Failed to validate endorsements for txn from client id %lu, seq num %lu", txn->client_id(), txn->client_seq_num());
+      Panic("Failed to validate endorsements for txn from client id %lu, seq num %lu", txn->client_id(), txn->client_seq_num());
       return WritebackCallback(&msg, txnDigest, txn, (void*) false);
     }
   }
@@ -2652,7 +2652,8 @@ void Server::Commit(const std::string &txnDigest, proto::Transaction *txn,
         BytesToHex(write.key(), 16).c_str());
     val.val = write.value();
 
-    val.policyId = GetWritePolicyId(write, "0");
+    // val.policyId = GetWritePolicyId(write, 0);
+    val.policyId = 0;
 
     store.put(write.key(), val, ts);
 
@@ -5300,7 +5301,7 @@ void Server::ProcessMoveView(const std::string &txnDigest, uint64_t proposed_vie
   q.release();
 }
 
-std::string Server::GetWritePolicyId(const WriteMessage &write, const std::string &defaultPolicyId) {
+uint64_t Server::GetWritePolicyId(const WriteMessage &write, uint64_t defaultPolicyId) {
   // if (write.has_policy()) {
   //   return write.policy();
   // }
@@ -5308,17 +5309,14 @@ std::string Server::GetWritePolicyId(const WriteMessage &write, const std::strin
   std::pair<Timestamp, Server::Value> tsVal;
   bool exists = store.get(write.key(), tsVal);
   if (!exists) {
-    if (defaultPolicyId.length() > 0) {
-      return defaultPolicyId;
-    }
-    else {
-      Panic("cannot find key %s in store", write.key().c_str());
-    }
+    return defaultPolicyId;
   }
   return tsVal.second.policyId;
 }
 
 EndorsementPolicy Server::ExtractPolicy(const proto::Transaction *txn) {
+  std::map<uint64_t, EndorsementPolicy> tmpPolicyStore;
+  tmpPolicyStore[0] = EndorsementPolicy(2);
   EndorsementPolicy extractedPolicy(2);
   for (const auto &write : txn->write_set()) {
     if (!IsKeyOwned(write.key())) {
@@ -5326,13 +5324,22 @@ EndorsementPolicy Server::ExtractPolicy(const proto::Transaction *txn) {
     }
 
     Debug("Extracting policy 0 for key %s", BytesToHex(write.key(), 16).c_str());
-    // std::string policyId = GetWritePolicyId(write, "0");
+    // uint64_t policyId = GetWritePolicyId(write, 0);
+    uint64_t policyId = 0; 
     // Debug("Extracting policy %s for key %s", policyId.c_str(), BytesToHex(write.key(), 16).c_str());
     // std::pair<Timestamp, EndorsementPolicy> tsPolicy;
     // bool exists = policyStore.get(policyId, tsPolicy);
     // if (!exists) {
-    //   Panic("cannot find policy %s in policyStore", policyId.c_str());
+    //   Panic("cannot find policy %lu in policyStore", policyId);
     // }
+    // policyStoreMap::const_accessor a;
+    // if (!policyStore.find(a, policyId)) {
+    //   Panic("cannot find policy %lu in policyStore", policyId);
+    // }
+
+    extractedPolicy.MergePolicy(tmpPolicyStore.at(policyId));
+    std::cerr << "extracting policy 0 for key " << BytesToHex(write.key(), 16) << std::endl;
+    // extractedPolicy.MergePolicy(a->second);
 
     // extractedPolicy.MergePolicy(tsPolicy.second);
   }
@@ -5342,21 +5349,32 @@ EndorsementPolicy Server::ExtractPolicy(const proto::Transaction *txn) {
       continue;
     }
 
-    // std::pair<Timestamp, Server::Value> tsVal;
-    // bool exists = store.get(read.key(), tsVal);
-    // if (!exists) {
-    //   Panic("cannot find key %s in store", read.key().c_str());
-    // }
+    std::pair<Timestamp, Server::Value> tsVal;
+    bool exists = store.get(read.key(), read.readtime(), tsVal);
+    if (!exists) {
+      Panic("cannot find key %s in store", read.key().c_str());
+    }
+    uint64_t policyId = tsVal.second.policyId;
+    UW_ASSERT(policyId == 0);
+    // uint64_t policyId = 0;
 
     // Debug("Extracting policy %s for key %s", tsVal.second.policyId.c_str(), BytesToHex(read.key(), 16).c_str());
     Debug("Extracting policy 0 for key %s", BytesToHex(read.key(), 16).c_str());
 
     // std::pair<Timestamp, EndorsementPolicy> tsPolicy;
-    // exists = policyStore.get(tsVal.second.policyId, tsPolicy);
+    // exists = policyStore.get(policyId, tsPolicy);
     // if (!exists) {
-    //   Panic("cannot find policy %s in policyStore", tsVal.second.policyId.c_str());
+    //   Panic("cannot find policy %lu in policyStore", policyId);
+    // }
+    // policyStoreMap::const_accessor a;
+    // if (!policyStore.find(a, policyId)) {
+    //   Panic("cannot find policy %lu in policyStore", policyId);
     // }
 
+    std::cerr << "extracting policy 0 for key " << BytesToHex(read.key(), 16) << std::endl;
+    extractedPolicy.MergePolicy(tmpPolicyStore.at(policyId));
+
+    // extractedPolicy.MergePolicy(a->second);
     // extractedPolicy.MergePolicy(tsPolicy.second);
   }
 
@@ -5373,10 +5391,12 @@ bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::
       endorsement.data(), 
       endorsement.signature())
     ) {
+      Panic("bad verify for client %lu", endorsement.process_id());
       return false;
     }
     // cannot have empty data
     if (endorsement.data().length() == 0) {
+      Panic("no data for client %lu", endorsement.process_id());
       return false;
     }
     // then check that data is all same as well
@@ -5384,6 +5404,7 @@ bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::
       txnDigest = endorsement.data();
     } 
     else if (txnDigest != endorsement.data()) {
+      Panic("data mismatch for client %lu", endorsement.process_id());
       return false;
     }
 
