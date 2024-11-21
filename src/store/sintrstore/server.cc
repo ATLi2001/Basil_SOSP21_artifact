@@ -253,8 +253,7 @@ void Server::ReceiveMessageInternal(const TransportAddress &remote,
     ManageDispatchWriteback(remote, data);
 
   } else if (type == abort.GetTypeName()) {
-    abort.ParseFromString(data);
-    HandleAbort(remote, abort);
+    ManageDispatchAbort(remote, data);
 
   } else if (type == ping.GetTypeName()) {
     ping.ParseFromString(data);
