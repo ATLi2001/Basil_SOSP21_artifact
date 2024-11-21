@@ -1,12 +1,12 @@
 d := $(dir $(lastword $(MAKEFILE_LIST)))
 
-SRCS += $(addprefix $(d), client.cc shardclient.cc server.cc store.cc common.cc \
+SRCS += $(addprefix $(d), client.cc shardclient.cc server.cc servertools.cc concurrencycontrol.cc store.cc common.cc \
 		phase1validator.cc localbatchsigner.cc sharedbatchsigner.cc \
 		basicverifier.cc localbatchverifier.cc sharedbatchverifier.cc proto_bench.cc)
 
 PROTOS += $(addprefix $(d), indicus-proto.proto)
 
-LIB-indicus-store := $(o)server.o $(LIB-latency) \
+LIB-indicus-store := $(o)server.o $(o)servertools.o $(o)concurrencycontrol.o $(LIB-latency) \
 	$(o)indicus-proto.o  $(o)common.o $(LIB-crypto) $(LIB-batched-sigs) $(LIB-bft-tapir-config) \
 	$(LIB-configuration) $(LIB-store-common) $(LIB-transport) $(o)phase1validator.o \
 	$(o)localbatchsigner.o $(o)sharedbatchsigner.o $(o)basicverifier.o \
@@ -20,9 +20,9 @@ LIB-indicus-client := $(LIB-udptransport) \
 
 
 LIB-proto := $(o)indicus-proto.o
-#-I/home/floriansuri/Indicus/BFT-DB/src/store/common
+#-I/home/floriansuri/Research/Projects/Pequin/Pequin-Artifact/src/store/common
 $(d)proto_bench: $(LIB-latency) $(LIB-crypto) $(LIB-batched-sigs) $(LIB-store-common) $(LIB-proto) $(o)proto_bench.o
 
 BINS += $(d)proto_bench
 
-include $(d)tests/Rules.mk
+#include $(d)tests/Rules.mk

@@ -238,6 +238,8 @@ DEFINE_uint64(indicus_inject_failure_proportion, 0, "proportion of clients that"
 DEFINE_uint64(indicus_inject_failure_freq, 100, "number of transactions per ONE failure"
 		    " in a Byz client (for Indicus)");
 
+DEFINE_bool(indicus_sign_client_proposals, false, "add signatures to client proposals -- used for optimistic tx-ids. Can be used for access control (unimplemented)");
+
 DEFINE_uint64(indicus_phase1DecisionTimeout, 1000UL, "p1 timeout before going slowpath");
 DEFINE_bool(indicus_multi_threading, false, "dispatch crypto to parallel threads");
 DEFINE_bool(indicus_batch_verification, false, "using ed25519 donna batch verification");
@@ -263,12 +265,12 @@ const std::string if_args[] = {
 	"client-stall-after-p1",
 	"client-send-partial-p1"
 };
-const indicusstore::InjectFailureType iff[] {
-  indicusstore::InjectFailureType::CLIENT_CRASH,
-  indicusstore::InjectFailureType::CLIENT_EQUIVOCATE,
-	indicusstore::InjectFailureType::CLIENT_EQUIVOCATE_SIMULATE,
-	indicusstore::InjectFailureType::CLIENT_STALL_AFTER_P1,
-	indicusstore::InjectFailureType::CLIENT_SEND_PARTIAL_P1
+const InjectFailureType iff[] {
+  InjectFailureType::CLIENT_CRASH,
+  InjectFailureType::CLIENT_EQUIVOCATE,
+	InjectFailureType::CLIENT_EQUIVOCATE_SIMULATE,
+	InjectFailureType::CLIENT_STALL_AFTER_P1,
+	InjectFailureType::CLIENT_SEND_PARTIAL_P1
 };
 static bool ValidateInjectFailureType(const char* flagname,
     const std::string &value) {
@@ -560,7 +562,6 @@ transport::Configuration *clients_config;
 KeyManager *keyManager;
 Partitioner *part;
 
-sintrstore::InjectFailureType convertIndicusFailureTypeToSintr(indicusstore::InjectFailureType iift);
 void Cleanup(int signal);
 void FlushStats();
 
@@ -669,7 +670,7 @@ int main(int argc, char **argv) {
   }
 
   // parse inject failure
-  indicusstore::InjectFailureType injectFailureType = indicusstore::InjectFailureType::CLIENT_EQUIVOCATE;
+  InjectFailureType injectFailureType = InjectFailureType::CLIENT_EQUIVOCATE;
   int numInjectFailure = sizeof(if_args);
   for (int i = 0; i < numInjectFailure; ++i) {
     if (FLAGS_indicus_inject_failure_type == if_args[i]) {
@@ -868,7 +869,9 @@ int main(int argc, char **argv) {
     SyncClient *syncClient = nullptr;
     OneShotClient *oneShotClient = nullptr;
 
-    uint64_t clientId = (FLAGS_client_id << 6) | i;
+    // uint64_t clientId = (FLAGS_client_id << 6) | i;
+    uint64_t clientId = FLAGS_client_id + FLAGS_num_client_hosts * i;
+
     switch (mode) {
     case PROTO_TAPIR: {
         client = new tapirstore::Client(config, clientId,
@@ -929,7 +932,7 @@ int main(int argc, char **argv) {
             NOT_REACHABLE();
         }
 
-        indicusstore::InjectFailure failure;
+        InjectFailure failure;
         failure.type = injectFailureType;
         failure.timeMs = FLAGS_indicus_inject_failure_ms + rand() % 100; //offset client failures a bit.
         //failure.enabled = rand() % 100 < FLAGS_indicus_inject_failure_proportion;
@@ -957,7 +960,9 @@ int main(int argc, char **argv) {
 																				FLAGS_indicus_all_to_all_fb,
 																			  FLAGS_indicus_no_fallback,
 																				FLAGS_indicus_relayP1_timeout,
-																			  false);
+																			  false, 
+                                        FLAGS_indicus_sign_client_proposals,
+                                        0);
 
         client = new indicusstore::Client(config, clientId,
                                           FLAGS_num_shards,
@@ -1019,8 +1024,8 @@ int main(int argc, char **argv) {
             NOT_REACHABLE();
         }
 
-        sintrstore::InjectFailure failure;
-        failure.type = convertIndicusFailureTypeToSintr(injectFailureType);
+        InjectFailure failure;
+        failure.type = injectFailureType;
         failure.timeMs = FLAGS_indicus_inject_failure_ms + rand() % 100; //offset client failures a bit.
         //failure.enabled = rand() % 100 < FLAGS_indicus_inject_failure_proportion;
 				//TODO: WARNING: This is a hack based on 72 total clients --> pass total_clients down as flag.
@@ -1056,6 +1061,8 @@ int main(int argc, char **argv) {
 																			  FLAGS_indicus_no_fallback,
 																				FLAGS_indicus_relayP1_timeout,
 																			  false,
+                                        FLAGS_indicus_sign_client_proposals,
+                                        0,
                                         sintr_params);
 
         uint64_t client_transport_id = FLAGS_num_client_threads * FLAGS_client_id + i;
@@ -1264,23 +1271,6 @@ int main(int argc, char **argv) {
   Cleanup(0);
 
 	return 0;
-}
-
-sintrstore::InjectFailureType convertIndicusFailureTypeToSintr(indicusstore::InjectFailureType iift) {
-  switch (iift) {
-    case indicusstore::InjectFailureType::CLIENT_CRASH:
-      return sintrstore::InjectFailureType::CLIENT_CRASH;
-    case indicusstore::InjectFailureType::CLIENT_EQUIVOCATE:
-      return sintrstore::InjectFailureType::CLIENT_EQUIVOCATE;
-    case indicusstore::InjectFailureType::CLIENT_EQUIVOCATE_SIMULATE:
-      return sintrstore::InjectFailureType::CLIENT_EQUIVOCATE_SIMULATE;
-    case indicusstore::InjectFailureType::CLIENT_STALL_AFTER_P1:
-      return sintrstore::InjectFailureType::CLIENT_STALL_AFTER_P1;
-    case indicusstore::InjectFailureType::CLIENT_SEND_PARTIAL_P1:
-      return sintrstore::InjectFailureType::CLIENT_SEND_PARTIAL_P1;
-    default:
-      throw "unexpected inject failure type";
-  }
 }
 
 void Cleanup(int signal) {

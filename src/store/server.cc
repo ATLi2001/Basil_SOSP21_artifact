@@ -267,6 +267,11 @@ DEFINE_uint64(indicus_use_coordinator, false, "use coordinator"
     " make primary the coordinator for atomic broadcast (for Indicus)");
 DEFINE_uint64(indicus_request_tx, false, "request tx"
     " request tx (for Indicus)");
+
+DEFINE_int32(indicus_rts_mode, 0, "Mode for managing RTS: 0 == no RTS, 1 == single RTS, 2 == set of RTS"); //set of RTS can be refined further to include interval from "read value" to TS
+
+DEFINE_bool(indicus_sign_client_proposals, false, "add signatures to client proposals "
+    " -- used for optimistic tx-ids. Can be used for access control (unimplemented)");
 		//
 //DEFINE_bool(indicus_clientAuthenticated, false, "Client messages signed");
 DEFINE_bool(indicus_multi_threading, true, "dispatch crypto to parallel threads");
@@ -588,7 +593,7 @@ int main(int argc, char **argv) {
                                       FLAGS_indicus_max_dep_depth, readDepSize,
                                       FLAGS_indicus_read_reply_batch, FLAGS_indicus_adjust_batch_size,
                                       FLAGS_indicus_shared_mem_batch, FLAGS_indicus_shared_mem_verify,
-                                      FLAGS_indicus_merkle_branch_factor, indicusstore::InjectFailure(),
+                                      FLAGS_indicus_merkle_branch_factor, InjectFailure(),
                                       FLAGS_indicus_multi_threading, FLAGS_indicus_batch_verification,
 																			FLAGS_indicus_batch_verification_size,
 																			FLAGS_indicus_mainThreadDispatching,
@@ -598,7 +603,9 @@ int main(int argc, char **argv) {
 																			FLAGS_indicus_dispatchCallbacks,
 																			FLAGS_indicus_all_to_all_fb,
 																		  FLAGS_indicus_no_fallback, FLAGS_indicus_relayP1_timeout,
-																		  FLAGS_indicus_replica_gossip);
+																		  FLAGS_indicus_replica_gossip,
+                                      FLAGS_indicus_sign_client_proposals,
+                                      FLAGS_indicus_rts_mode);
       Debug("Starting new server object");
       server = new indicusstore::Server(config, FLAGS_group_idx,
                                         FLAGS_replica_idx, FLAGS_num_shards, FLAGS_num_groups, tport,
@@ -645,7 +652,7 @@ int main(int argc, char **argv) {
                                       FLAGS_indicus_max_dep_depth, readDepSize,
                                       FLAGS_indicus_read_reply_batch, FLAGS_indicus_adjust_batch_size,
                                       FLAGS_indicus_shared_mem_batch, FLAGS_indicus_shared_mem_verify,
-                                      FLAGS_indicus_merkle_branch_factor, sintrstore::InjectFailure(),
+                                      FLAGS_indicus_merkle_branch_factor, InjectFailure(),
                                       FLAGS_indicus_multi_threading, FLAGS_indicus_batch_verification,
 																			FLAGS_indicus_batch_verification_size,
 																			FLAGS_indicus_mainThreadDispatching,
@@ -655,7 +662,10 @@ int main(int argc, char **argv) {
 																			FLAGS_indicus_dispatchCallbacks,
 																			FLAGS_indicus_all_to_all_fb,
 																		  FLAGS_indicus_no_fallback, FLAGS_indicus_relayP1_timeout,
-																		  FLAGS_indicus_replica_gossip, sintr_params);
+																		  FLAGS_indicus_replica_gossip, 
+                                      FLAGS_indicus_sign_client_proposals,
+                                      FLAGS_indicus_rts_mode,
+                                      sintr_params);
       Debug("Starting new server object");
       server = new sintrstore::Server(config, FLAGS_group_idx,
                                         FLAGS_replica_idx, FLAGS_num_shards, FLAGS_num_groups, tport,

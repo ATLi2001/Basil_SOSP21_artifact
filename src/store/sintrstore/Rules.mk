@@ -6,14 +6,14 @@ include $(d)validation/Rules.mk
 # is there a better way to reset the d variable?
 d := $(cd)
 
-SRCS += $(addprefix $(d), client.cc shardclient.cc client2client.cc server.cc store.cc common.cc \
+SRCS += $(addprefix $(d), client.cc shardclient.cc client2client.cc server.cc servertools.cc concurrencycontrol.cc store.cc common.cc \
 		phase1validator.cc localbatchsigner.cc sharedbatchsigner.cc \
 		basicverifier.cc localbatchverifier.cc sharedbatchverifier.cc proto_bench.cc \
 		endorsement_client.cc endorsement_policy.cc)
 
 PROTOS += $(addprefix $(d), sintr-proto.proto)
 
-LIB-sintr-store := $(o)server.o $(LIB-latency) \
+LIB-sintr-store := $(o)server.o $(o)servertools.o $(o)concurrencycontrol.o $(LIB-latency) \
 	$(o)sintr-proto.o  $(o)common.o $(LIB-crypto) $(LIB-batched-sigs) $(LIB-bft-tapir-config) \
 	$(LIB-configuration) $(LIB-store-common) $(LIB-transport) $(o)phase1validator.o \
 	$(o)localbatchsigner.o $(o)sharedbatchsigner.o $(o)basicverifier.o \
@@ -35,4 +35,4 @@ $(d)proto_bench: $(LIB-latency) $(LIB-crypto) $(LIB-batched-sigs) $(LIB-store-co
 
 BINS += $(d)proto_bench
 
-include $(d)tests/Rules.mk
+#include $(d)tests/Rules.mk

@@ -45,6 +45,7 @@
 #include <google/protobuf/message.h>
 
 #include "store/common/stats.h"
+#include "store/common/failures.h"
 
 namespace sintrstore {
 
@@ -122,11 +123,11 @@ template<typename T> static void* pointerWrapper(std::function<T()> func){
 
 void* BoolPointerWrapper(std::function<bool()> func);
 
-void SignMessage(::google::protobuf::Message* msg,
+void SignMessage(const ::google::protobuf::Message* msg,
     crypto::PrivKey* privateKey, uint64_t processId,
     proto::SignedMessage *signedMessage);
 
-void* asyncSignMessage(::google::protobuf::Message* msg,
+void* asyncSignMessage(const ::google::protobuf::Message* msg,
     crypto::PrivKey* privateKey, uint64_t processId,
     proto::SignedMessage *signedMessage);
 
@@ -345,24 +346,24 @@ int64_t GetLogGroup(const proto::Transaction &txn, const std::string &txnDigest)
 // helper function for converting client ids to client transport ids
 uint64_t ClientIdToTransportId(uint64_t client_id, uint64_t clientThreadsPerProcess);
 
-enum InjectFailureType {
-  CLIENT_EQUIVOCATE = 0,
-  CLIENT_CRASH = 1,
-  CLIENT_EQUIVOCATE_SIMULATE = 2,
-  CLIENT_STALL_AFTER_P1 = 3,
-  CLIENT_SEND_PARTIAL_P1 = 4
-};
+// enum InjectFailureType {
+//   CLIENT_EQUIVOCATE = 0,
+//   CLIENT_CRASH = 1,
+//   CLIENT_EQUIVOCATE_SIMULATE = 2,
+//   CLIENT_STALL_AFTER_P1 = 3,
+//   CLIENT_SEND_PARTIAL_P1 = 4
+// };
 
-struct InjectFailure {
-  InjectFailure() { }
-  InjectFailure(const InjectFailure &failure) : type(failure.type),
-      timeMs(failure.timeMs), enabled(failure.enabled), frequency(failure.frequency) { }
+// struct InjectFailure {
+//   InjectFailure() { }
+//   InjectFailure(const InjectFailure &failure) : type(failure.type),
+//       timeMs(failure.timeMs), enabled(failure.enabled), frequency(failure.frequency) { }
 
-  InjectFailureType type;
-  uint32_t timeMs;
-  bool enabled;
-  uint32_t frequency;
-};
+//   InjectFailureType type;
+//   uint32_t timeMs;
+//   bool enabled;
+//   uint32_t frequency;
+// };
 
 // Sintr protocol specific parameters
 typedef struct SintrParameters {
@@ -411,6 +412,9 @@ typedef struct Parameters {
   const uint64_t relayP1_timeout;
   const bool replicaGossip;
 
+  const bool signClientProposals;
+  const uint32_t rtsMode;
+
   const SintrParameters sintr_params;
 
   Parameters(bool signedMessages, bool validateProofs, bool hashDigest, bool verifyDeps,
@@ -426,6 +430,8 @@ typedef struct Parameters {
     bool no_fallback,
     uint64_t relayP1_timeout,
     bool replicaGossip,
+    bool signClientProposals,
+    uint32_t rtsMode,
     SintrParameters sintr_params) :
     signedMessages(signedMessages), validateProofs(validateProofs),
     hashDigest(hashDigest), verifyDeps(verifyDeps), signatureBatchSize(signatureBatchSize),
@@ -444,6 +450,8 @@ typedef struct Parameters {
     no_fallback(no_fallback),
     relayP1_timeout(relayP1_timeout),
     replicaGossip(replicaGossip),
+    signClientProposals(signClientProposals),
+    rtsMode(rtsMode),
     sintr_params(sintr_params) { }
 } Parameters;
 

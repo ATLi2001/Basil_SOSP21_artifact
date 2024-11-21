@@ -45,6 +45,7 @@
 #include <google/protobuf/message.h>
 
 #include "store/common/stats.h"
+#include "store/common/failures.h"
 
 namespace indicusstore {
 
@@ -123,11 +124,11 @@ template<typename T> static void* pointerWrapper(std::function<T()> func){
 
 void* BoolPointerWrapper(std::function<bool()> func);
 
-void SignMessage(::google::protobuf::Message* msg,
+void SignMessage(const ::google::protobuf::Message* msg,
     crypto::PrivKey* privateKey, uint64_t processId,
     proto::SignedMessage *signedMessage);
 
-void* asyncSignMessage(::google::protobuf::Message* msg,
+void* asyncSignMessage(const::google::protobuf::Message* msg,
     crypto::PrivKey* privateKey, uint64_t processId,
     proto::SignedMessage *signedMessage);
 
@@ -136,9 +137,9 @@ void SignMessages(const std::vector<::google::protobuf::Message*>& msgs,
     const std::vector<proto::SignedMessage*>& signedMessages,
     uint64_t merkleBranchFactor);
 
-    void SignMessages(const std::vector<Triplet>& batch,
-        crypto::PrivKey* privateKey, uint64_t processId,
-        uint64_t merkleBranchFactor);
+void SignMessages(const std::vector<Triplet>& batch,
+    crypto::PrivKey* privateKey, uint64_t processId,
+    uint64_t merkleBranchFactor);
 
 void* asyncSignMessages(const std::vector<::google::protobuf::Message*> msgs,
     crypto::PrivKey* privateKey, uint64_t processId,
@@ -340,24 +341,24 @@ bool IsReplicaInGroup(uint64_t id, uint32_t group,
 
 int64_t GetLogGroup(const proto::Transaction &txn, const std::string &txnDigest);
 
-enum InjectFailureType {
-  CLIENT_EQUIVOCATE = 0,
-  CLIENT_CRASH = 1,
-  CLIENT_EQUIVOCATE_SIMULATE = 2,
-  CLIENT_STALL_AFTER_P1 = 3,
-  CLIENT_SEND_PARTIAL_P1 = 4
-};
+// enum InjectFailureType {
+//   CLIENT_EQUIVOCATE = 0,
+//   CLIENT_CRASH = 1,
+//   CLIENT_EQUIVOCATE_SIMULATE = 2,
+//   CLIENT_STALL_AFTER_P1 = 3,
+//   CLIENT_SEND_PARTIAL_P1 = 4
+// };
 
-struct InjectFailure {
-  InjectFailure() { }
-  InjectFailure(const InjectFailure &failure) : type(failure.type),
-      timeMs(failure.timeMs), enabled(failure.enabled), frequency(failure.frequency) { }
+// struct InjectFailure {
+//   InjectFailure() { }
+//   InjectFailure(const InjectFailure &failure) : type(failure.type),
+//       timeMs(failure.timeMs), enabled(failure.enabled), frequency(failure.frequency) { }
 
-  InjectFailureType type;
-  uint32_t timeMs;
-  bool enabled;
-  uint32_t frequency;
-};
+//   InjectFailureType type;
+//   uint32_t timeMs;
+//   bool enabled;
+//   uint32_t frequency;
+// };
 
 typedef struct Parameters {
   const bool signedMessages;
@@ -389,6 +390,9 @@ typedef struct Parameters {
   const uint64_t relayP1_timeout;
   const bool replicaGossip;
 
+  const bool signClientProposals;
+  const uint32_t rtsMode;
+
   Parameters(bool signedMessages, bool validateProofs, bool hashDigest, bool verifyDeps,
     int signatureBatchSize, int64_t maxDepDepth, uint64_t readDepSize,
     bool readReplyBatch, bool adjustBatchSize, bool sharedMemBatches,
@@ -401,7 +405,9 @@ typedef struct Parameters {
     bool all_to_all_fb,
     bool no_fallback,
     uint64_t relayP1_timeout,
-    bool replicaGossip) :
+    bool replicaGossip,
+    bool signClientProposals,
+    uint32_t rtsMode) :
     signedMessages(signedMessages), validateProofs(validateProofs),
     hashDigest(hashDigest), verifyDeps(verifyDeps), signatureBatchSize(signatureBatchSize),
     maxDepDepth(maxDepDepth), readDepSize(readDepSize),
@@ -418,7 +424,9 @@ typedef struct Parameters {
     all_to_all_fb(all_to_all_fb),
     no_fallback(no_fallback),
     relayP1_timeout(relayP1_timeout),
-    replicaGossip(replicaGossip) { }
+    replicaGossip(replicaGossip),
+    signClientProposals(signClientProposals),
+    rtsMode(rtsMode) { }
 } Parameters;
 
 } // namespace indicusstore

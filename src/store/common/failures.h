@@ -24,38 +24,26 @@
  * SOFTWARE.
  *
  **********************************************************************/
-#ifndef LIB_KEYMANAGER_H
-#define LIB_KEYMANAGER_H
+#ifndef _FAILURES_H_
+#define _FAILURES_H_
 
-#include "lib/crypto.h"
-#include "lib/message.h"
-
-#include <map>
-#include <mutex>
-
-class KeyManager {
- public:
-  KeyManager(const std::string &keyPath, crypto::KeyType t, bool precompute, uint64_t num_replicas = 0, uint64_t num_clients = 0, uint64_t num_client_processes = 0);
-  virtual ~KeyManager();
-
-  void Cleanup();
-  crypto::PubKey* GetPublicKey(uint64_t id);
-  crypto::PrivKey* GetPrivateKey(uint64_t id);
-  void PreLoadPubKeys(bool isServer);
-  void PreLoadPrivKey(uint64_t id, bool isClient);
-  uint64_t GetClientKeyId(uint64_t client_id);
-
-
- private:
-  const std::string keyPath;
-  const crypto::KeyType keyType;
-  const bool precompute;
-  std::map<uint64_t, crypto::PubKey*> publicKeys;
-  std::map<uint64_t, crypto::PrivKey*> privateKeys;
-  std::mutex keyMutex;
-  uint64_t num_replicas; //defaults to 0 -- equivalent to clientSignatures not in use.
-  uint64_t num_clients; // num_client_processes * threads_per_client defaults to 0; Load does nothing.
-  uint64_t num_client_processes; //defaults to 0
+enum InjectFailureType {
+  CLIENT_EQUIVOCATE = 0,
+  CLIENT_CRASH = 1,
+  CLIENT_EQUIVOCATE_SIMULATE = 2,
+  CLIENT_STALL_AFTER_P1 = 3,
+  CLIENT_SEND_PARTIAL_P1 = 4
 };
 
-#endif
+struct InjectFailure {
+  InjectFailure() { }
+  InjectFailure(const InjectFailure &failure) : type(failure.type),
+      timeMs(failure.timeMs), enabled(failure.enabled), frequency(failure.frequency) { }
+
+  InjectFailureType type;
+  uint32_t timeMs;
+  bool enabled;
+  uint32_t frequency;
+};
+
+#endif /* _FAILURES_H_ */
