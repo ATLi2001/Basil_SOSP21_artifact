@@ -492,6 +492,7 @@ void Client2Client::ValidationThreadFunction() {
 
       transport->SendMessage(this, *valInfo->remote, finishValTxnMsg);
       Debug("transport->SendMessage complete");
+      delete txn;
     }
 
     delete valInfo;

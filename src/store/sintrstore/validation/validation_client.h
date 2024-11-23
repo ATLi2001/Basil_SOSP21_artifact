@@ -111,7 +111,13 @@ class ValidationClient : public ::Client {
     AllValidationTxnState() {}
     AllValidationTxnState(uint64_t txn_client_id, uint64_t txn_client_seq_num, proto::Transaction *txn) : 
       txn_client_id(txn_client_id), txn_client_seq_num(txn_client_seq_num), txn(txn) {}
-    ~AllValidationTxnState() {}
+    ~AllValidationTxnState() {
+      // do not delete txn, since it is returned from GetCompletedTxn
+      // delete all pendingGets
+      for (auto &pendingGet : pendingGets) {
+        delete pendingGet;
+      }
+    }
     
     uint64_t txn_client_id;
     uint64_t txn_client_seq_num;
@@ -123,7 +129,7 @@ class ValidationClient : public ::Client {
     std::vector<PendingValidationGet *> pendingGets;
   };
   
-  bool BufferGet(const AllValidationTxnState &allValTxnState, const std::string &key, 
+  bool BufferGet(const AllValidationTxnState *allValTxnState, const std::string &key, 
     validation_read_callback vrcb);
   // add (key, ts) to the readset of transaction txn_id
   void AddReadset(AllValidationTxnState *allValTxnState, const std::string &key, 
@@ -149,7 +155,7 @@ class ValidationClient : public ::Client {
   typedef tbb::concurrent_hash_map<std::thread::id, std::pair<uint64_t, uint64_t>> threadValTxnIdsMap;
   threadValTxnIdsMap threadValTxnIds;
   // map from (txn_client_id, txn_client_seq_num) to all relevant validation txn state
-  typedef tbb::concurrent_hash_map<std::string, AllValidationTxnState> allValTxnStatesMap;
+  typedef tbb::concurrent_hash_map<std::string, AllValidationTxnState *> allValTxnStatesMap;
   allValTxnStatesMap allValTxnStates;
 };
 

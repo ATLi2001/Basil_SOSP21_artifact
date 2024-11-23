@@ -38,9 +38,16 @@ ValidationClient::~ValidationClient() {
 
 void ValidationClient::Begin(begin_callback bcb, begin_timeout_callback btcb,
     uint32_t timeout, bool retry, const std::string &txnState) {
-  // Begin is called after SetTxnTimestamp, which already sets up txn state at txn_id
   uint64_t txn_client_id, txn_client_seq_num;
   GetThreadValTxnId(&txn_client_id, &txn_client_seq_num);
+  std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
+
+  allValTxnStatesMap::accessor a;
+  if (!allValTxnStates.find(a, txn_id)) {
+    // Begin should always happen after SetTxnTimestamp, which inserts at txn_id
+    Panic("cannot find transaction %s in allValTxnStates", txn_id.c_str());
+  }
+  a.release();
   bcb(txn_client_seq_num);
 }
 
@@ -63,7 +70,7 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
     // Get should always happen after SetTxnTimestamp, which inserts at txn_id
     Panic("cannot find transaction %s in allValTxnStates", txn_id.c_str());
   }
-  proto::Transaction *txn = a->second.txn;
+  proto::Transaction *txn = a->second->txn;
   // edit the involved groups for txn
   std::vector<int> txnGroups(txn->involved_groups().begin(), txn->involved_groups().end());
   int i = (*part)(key, nshards, -1, txnGroups) % ngroups;
@@ -95,7 +102,7 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
   pendingGet->vrcb = vrcb;
   pendingGet->vrtcb = gtcb;
 
-  a->second.pendingGets.push_back(pendingGet);
+  a->second->pendingGets.push_back(pendingGet);
 }
 
 void ValidationClient::Put(const std::string &key, const std::string &value,
@@ -111,7 +118,7 @@ void ValidationClient::Put(const std::string &key, const std::string &value,
     Panic("cannot find transaction %s in allValTxnStates", txn_id.c_str());
   }
 
-  proto::Transaction *txn = a->second.txn;
+  proto::Transaction *txn = a->second->txn;
   WriteMessage *write = txn->add_write_set();
   write->set_key(key);
   write->set_value(value);
@@ -122,6 +129,7 @@ void ValidationClient::Put(const std::string &key, const std::string &value,
     txn->add_involved_groups(i);
   }
 
+  a.release();
   pcb(REPLY_OK, key, value);
 }
 
@@ -138,10 +146,13 @@ void ValidationClient::Abort(abort_callback acb, abort_timeout_callback atcb,
   std::string txn_id = ToTxnId(txn_client_id, txn_client_seq_num);
 
   allValTxnStatesMap::accessor a;
-  if (allValTxnStates.find(a, txn_id)) {
-    allValTxnStates.erase(a);
+  if (!allValTxnStates.find(a, txn_id)) {
+    // Abort should always happen after SetTxnTimestamp, which inserts at txn_id
+    Panic("cannot find transaction %s in allValTxnStates", txn_id.c_str());
   }
-
+  delete a->second->txn;
+  allValTxnStates.erase(a);
+  a.release();
   acb();
 }
 
@@ -160,10 +171,10 @@ void ValidationClient::SetTxnTimestamp(uint64_t txn_client_id, uint64_t txn_clie
     txn = new proto::Transaction();
     txn->set_client_id(txn_client_id);
     txn->set_client_seq_num(txn_client_seq_num);
-    a->second = AllValidationTxnState(txn_client_id, txn_client_seq_num, txn);
+    a->second = new AllValidationTxnState(txn_client_id, txn_client_seq_num, txn);
   } 
   else {
-    txn = a->second.txn;
+    txn = a->second->txn;
   }
   ts.serialize(txn->mutable_timestamp());
 }
@@ -206,12 +217,12 @@ void ValidationClient::ProcessForwardReadResult(uint64_t txn_client_id, uint64_t
     proto::Transaction *txn = new proto::Transaction();
     txn->set_client_id(txn_client_id);
     txn->set_client_seq_num(txn_client_seq_num);
-    a->second = AllValidationTxnState(txn_client_id, txn_client_seq_num, txn);
-    editTxnStateCB(&a->second);
+    a->second = new AllValidationTxnState(txn_client_id, txn_client_seq_num, txn);
+    editTxnStateCB(a->second);
     return;
   }
 
-  std::vector<PendingValidationGet *> *reqs = &a->second.pendingGets;
+  std::vector<PendingValidationGet *> *reqs = &a->second->pendingGets;
   auto reqs_itr = std::find_if(
     reqs->begin(), reqs->end(), 
     [&curr_key](const PendingValidationGet *req) { return req->key == curr_key; }
@@ -223,13 +234,13 @@ void ValidationClient::ProcessForwardReadResult(uint64_t txn_client_id, uint64_t
       txn_client_seq_num,
       BytesToHex(curr_key, 16).c_str()
     );
-    editTxnStateCB(&a->second);
+    editTxnStateCB(a->second);
     return;
   }
   // callback
   PendingValidationGet *req = *reqs_itr;
   req->ts = curr_ts;
-  editTxnStateCB(&a->second);
+  editTxnStateCB(a->second);
   req->vrcb(REPLY_OK, txn_client_id, txn_client_seq_num, req->key, curr_value, req->ts);
 
   // remove from vector
@@ -246,23 +257,23 @@ proto::Transaction *ValidationClient::GetCompletedTxn(uint64_t txn_client_id, ui
     // so txn_id must be in allValTxnStates
     Panic("cannot find transaction %s in allValTxnStates", txn_id.c_str());
   }
-  proto::Transaction *txn = a->second.txn;
+  proto::Transaction *txn = a->second->txn;
 
   Debug(
     "ValidationClient::GetCompletedValTxn called for txn client id %lu, seq num %lu",
     txn_client_id,
     txn_client_seq_num
   );
-  // pendingValTxnStates.erase(a);
+
   allValTxnStates.erase(a);
   return txn;
 }
 
-bool ValidationClient::BufferGet(const AllValidationTxnState &allValTxnState, const std::string &key, 
+bool ValidationClient::BufferGet(const AllValidationTxnState *allValTxnState, const std::string &key, 
     validation_read_callback vrcb) {
-  uint64_t txn_client_id = allValTxnState.txn_client_id;
-  uint64_t txn_client_seq_num = allValTxnState.txn_client_seq_num;
-  proto::Transaction *txn = allValTxnState.txn;
+  uint64_t txn_client_id = allValTxnState->txn_client_id;
+  uint64_t txn_client_seq_num = allValTxnState->txn_client_seq_num;
+  proto::Transaction *txn = allValTxnState->txn;
   for (const auto &write : txn->write_set()) {
     if (write.key() == key) {
       vrcb(REPLY_OK, txn_client_id, txn_client_seq_num, key, write.value(), Timestamp());
@@ -272,7 +283,7 @@ bool ValidationClient::BufferGet(const AllValidationTxnState &allValTxnState, co
 
   for (const auto &read : txn->read_set()) {
     if (read.key() == key) {
-      vrcb(REPLY_OK, txn_client_id, txn_client_seq_num, key, allValTxnState.readValues.at(key), read.readtime());
+      vrcb(REPLY_OK, txn_client_id, txn_client_seq_num, key, allValTxnState->readValues.at(key), read.readtime());
       return true;
     }
   }
