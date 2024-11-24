@@ -654,7 +654,7 @@ void Server::Inform_P1_GC_Leader(proto::Phase1Reply &reply, proto::Transaction &
 void Server::HandlePhase1(const TransportAddress &remote,
     proto::Phase1 &msg) {
   //dummyTx = msg.txn(); //PURELY TESTING PURPOSES!!: NOTE WARNING
- 
+ UW_ASSERT(msg.endorsements().sig_msgs_size() == 2);
  Debug("Received Phase1 message");
   proto::Transaction *txn;
   if(params.signClientProposals){
@@ -762,6 +762,9 @@ void Server::HandlePhase1(const TransportAddress &remote,
 void Server::HandlePhase1CB(proto::Phase1 *msg, proto::ConcurrencyControl::Result result,
   const proto::CommittedProof* &committedProof, std::string &txnDigest, const TransportAddress &remote, const proto::Transaction *abstain_conflict, bool isGossip){
 
+  p1MetaDataMap::accessor c;
+  BufferP1Result(c, result, committedProof, txnDigest, 0);
+
   if (result != proto::ConcurrencyControl::WAIT && !isGossip) { //forwarded P1 needs no reply.
     //XXX setting client time outs for Fallback
     // if(client_starttime.find(txnDigest) == client_starttime.end()){
@@ -773,6 +776,8 @@ void Server::HandlePhase1CB(proto::Phase1 *msg, proto::ConcurrencyControl::Resul
 
     SendPhase1Reply(msg->req_id(), result, committedProof, txnDigest, &remote, abstain_conflict);
   }
+  c.release();
+
   if((params.mainThreadDispatching && (!params.dispatchMessageReceive || params.parallel_CCC)) || (params.multiThreading && params.signClientProposals)) FreePhase1message(msg);
 }
 
@@ -1354,6 +1359,8 @@ void Server::HandleAbort(const TransportAddress &remote,
   else{
     //No RTS
   }
+
+  if(params.multiThreading || (params.mainThreadDispatching && !params.dispatchMessageReceive))  FreeAbortMessage(&msg);
 }
 
 
