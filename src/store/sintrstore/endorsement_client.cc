@@ -233,7 +233,7 @@ EndorsementPolicy EndorsementClient::GetPolicyFromCache(const std::string &key) 
   if (it == keyPolicyIdCache.end()) {
     return EndorsementPolicy();
   }
-  std::string policyId = it->second;
+  uint64_t policyId = it->second;
   auto it2 = policyCache.find(policyId);
   if (it2 == policyCache.end()) {
     return EndorsementPolicy();
@@ -242,11 +242,11 @@ EndorsementPolicy EndorsementClient::GetPolicyFromCache(const std::string &key) 
   return it2->second;
 }
 
-void EndorsementClient::UpdateKeyPolicyIdCache(const std::string &key, const std::string &policyId) {
+void EndorsementClient::UpdateKeyPolicyIdCache(const std::string &key, uint64_t policyId) {
   keyPolicyIdCache[key] = policyId;
 }
 
-void EndorsementClient::UpdatePolicyCache(const std::string &policyId, const EndorsementPolicy &policy) {
+void EndorsementClient::UpdatePolicyCache(uint64_t policyId, const EndorsementPolicy &policy) {
   policyCache[policyId] = policy;
 }
 

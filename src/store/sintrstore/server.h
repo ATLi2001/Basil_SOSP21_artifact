@@ -45,6 +45,8 @@
 #include "store/sintrstore/sintr-proto.pb.h"
 #include "store/sintrstore/batchsigner.h"
 #include "store/sintrstore/verifier.h"
+#include "store/sintrstore/endorsement_policy.h"
+#include "store/common/backend/versionstore_generic_safe.h"
 #include <sys/time.h>
 
 #include <set>
@@ -112,6 +114,7 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
   struct Value {
     std::string val;
     const proto::CommittedProof *proof;
+    uint64_t policyId;
   };
 
 //Protocol
@@ -450,6 +453,13 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
     return static_cast<int>((*part)(key, numShards, groupIdx, dummyTxnGroups) % numGroups) == groupIdx;
   }
 
+  // perform check on endorsements in the Phase1 msg with respect to txn
+  bool EndorsementCheck(const proto::Phase1 *msg, const proto::Transaction *txn);
+  // fill in policy from a transaction readset writeset
+  void ExtractPolicy(const proto::Transaction *txn, EndorsementPolicy &policy);
+  // validate endorsements have valid signatures and matching data, and satisfy the policy
+  bool ValidateEndorsements(const EndorsementPolicy &policy, const proto::SignedMessages &endorsements);
+
   const transport::Configuration &config;
   const int groupIdx;
   const int idx;
@@ -559,7 +569,8 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
 
 // DATA STRUCTURES
 
-  VersionedKVStore<Timestamp, Value> store;
+  VersionedKVStoreGeneric<std::string, Timestamp, Value> store;
+  VersionedKVStoreGeneric<uint64_t, Timestamp, EndorsementPolicy> policyStore;
   // Key -> V
   //std::unordered_map<std::string, std::set<std::tuple<Timestamp, Timestamp, const proto::CommittedProof *>>> committedReads;
   typedef std::tuple<Timestamp, Timestamp, const proto::CommittedProof *> committedRead;

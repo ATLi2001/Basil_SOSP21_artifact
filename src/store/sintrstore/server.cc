@@ -294,6 +294,15 @@ void Server::Load(const std::string &key, const std::string &value,
   auto committedItr = committed.find("");
   UW_ASSERT(committedItr != committed.end());
   val.proof = committedItr->second;
+  // TODO: actually set policy
+  uint64_t policyId = 0;
+  val.policyId = policyId;
+  std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+  bool exists = policyStore.get(policyId, tsPolicy);
+  if (!exists) {
+    Debug("Adding policy %lu to policyStore", policyId);
+    policyStore.put(policyId, EndorsementPolicy(2), timestamp);
+  }
   store.put(key, val, timestamp);
   if (key.length() == 5 && key[0] == 0) {
     std::cerr << std::bitset<8>(key[0]) << ' '
@@ -340,6 +349,15 @@ void Server::HandleRead(const TransportAddress &remote,
     if (params.validateProofs) {
       *readReply->mutable_proof() = *tsVal.second.proof;
     }
+
+    // get policy from policyStore
+    std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+    bool policyExists = policyStore.get(tsVal.second.policyId, ts, tsPolicy);
+    if (!policyExists) {
+      Panic("Cannot find policy %lu in policyStore", tsVal.second.policyId);
+    }
+    readReply->mutable_write()->mutable_committed_policy()->set_policy_id(tsVal.second.policyId);
+    tsPolicy.second.SerializeToProtoMessage(readReply->mutable_write()->mutable_committed_policy());
   }
 
   TransportAddress *remoteCopy = remote.clone();
@@ -422,9 +440,11 @@ void Server::HandleRead(const TransportAddress &remote,
           if (mostRecent != nullptr) {
             //if(Timestamp(mostRecent->timestamp()) > ts) Panic("Reading prepared write with TS larger than read ts");
             std::string preparedValue;
+            uint64_t preparedPolicyId = 0;
             for (const auto &w : mostRecent->write_set()) {
               if (w.key() == msg.key()) {
                 preparedValue = w.value();
+                preparedPolicyId = 0;
                 break;
               }
             }
@@ -436,6 +456,15 @@ void Server::HandleRead(const TransportAddress &remote,
               readReply->mutable_write()->set_prepared_value(preparedValue);
               *readReply->mutable_write()->mutable_prepared_timestamp() = mostRecent->timestamp();
               *readReply->mutable_write()->mutable_prepared_txn_digest() = TransactionDigest(*mostRecent, params.hashDigest);
+              
+              // get policy from policyStore
+              std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+              bool policyExists = policyStore.get(preparedPolicyId, tsPolicy);
+              if (!policyExists) {
+                Panic("Cannot find policy %lu in policyStore", preparedPolicyId);
+              }
+              readReply->mutable_write()->mutable_prepared_policy()->set_policy_id(preparedPolicyId);
+              tsPolicy.second.SerializeToProtoMessage(readReply->mutable_write()->mutable_prepared_policy());
             }
           }
         }
@@ -1488,6 +1517,7 @@ void Server::Commit(const std::string &txnDigest, proto::Transaction *txn,
         txn->client_id(), txn->client_seq_num(),
         BytesToHex(write.key(), 16).c_str());
     val.val = write.value();
+    val.policyId = 0;
 
     store.put(write.key(), val, ts);
 
@@ -3481,6 +3511,106 @@ void Server::ProcessMoveView(const std::string &txnDigest, uint64_t proposed_vie
   p.release();
   q.release();
 }
+
+bool Server::EndorsementCheck(const proto::Phase1 *msg, const proto::Transaction *txn) {
+  EndorsementPolicy policy;
+  ExtractPolicy(txn, policy);
+  return ValidateEndorsements(policy, msg->endorsements());
+}
+
+void Server::ExtractPolicy(const proto::Transaction *txn, EndorsementPolicy &policy) {
+  for (const auto &write : txn->write_set()) {
+    if (!IsKeyOwned(write.key())) {
+      continue;
+    }
+
+    // uint64_t policyId = GetWritePolicyId(write, 0);
+    uint64_t policyId = 0; 
+    Debug("Extracting policy %lu for key %s", policyId, BytesToHex(write.key(), 16).c_str());
+
+    std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+    bool exists = policyStore.get(policyId, tsPolicy);
+    if (!exists) {
+      Panic("Cannot find policy %lu in policyStore", policyId);
+    }
+
+    policy.MergePolicy(tsPolicy.second);
+  }
+
+  for (const auto &read : txn->read_set()) {
+    if (!IsKeyOwned(read.key())) {
+      continue;
+    }
+
+    uint64_t policyId;
+    std::pair<Timestamp, Server::Value> tsVal;
+    bool exists = store.get(read.key(), read.readtime(), tsVal);
+    if (exists) {
+      policyId = tsVal.second.policyId;
+    } 
+    
+    // also check prepared
+    const auto preparedWritesItr = preparedWrites.find(read.key());
+    if (preparedWritesItr != preparedWrites.end()) {
+      std::shared_lock lock(preparedWritesItr->second.first);
+      const auto preparedWritesTimeItr = preparedWritesItr->second.second.find(read.readtime());
+      if (preparedWritesTimeItr != preparedWritesItr->second.second.end()) {      
+        const proto::Transaction *preparedTxn = preparedWritesTimeItr->second;
+        for (const auto &w : preparedTxn->write_set()) {
+          if (w.key() == read.key()) {
+            // TODO: get policyId
+            policyId = 0;
+            break;
+          }
+        }
+      }
+    }
+    
+    UW_ASSERT(policyId == 0);
+
+    Debug("Extracting policy %lu for key %s", policyId, BytesToHex(read.key(), 16).c_str());
+    std::pair<Timestamp, EndorsementPolicy> tsPolicy;
+    exists = policyStore.get(policyId, tsPolicy);
+    if (!exists) {
+      Panic("Cannot find policy %lu in policyStore", policyId);
+    }
+
+    policy.MergePolicy(tsPolicy.second);
+  }
+}
+
+bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::SignedMessages &endorsements) {
+  std::set<uint64_t> endorsers;
+  std::string txnDigest;
+  for (const auto &endorsement : endorsements.sig_msgs()) {
+    // cannot have empty data
+    if (endorsement.data().length() == 0) {
+      return false;
+    }
+    // then check that data is all same as well
+    if (txnDigest.length() == 0) {
+      txnDigest = endorsement.data();
+    } 
+    else if (txnDigest != endorsement.data()) {
+      return false;
+    }
+
+    // check signature
+    if (!client_verifier->Verify(
+      keyManager->GetPublicKey(keyManager->GetClientKeyId(endorsement.process_id())), 
+      endorsement.data(), 
+      endorsement.signature())
+    ) {
+      return false;
+    }
+
+    endorsers.insert(endorsement.process_id());
+  }
+
+  // check if endorsers satisfy policy
+  return policy.IsSatisfied(endorsers);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 } // namespace sintrstore

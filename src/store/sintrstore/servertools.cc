@@ -563,6 +563,12 @@ void* Server::TryPrepare(proto::Phase1 &msg, const TransportAddress &remote, pro
       result = DoOCCCheck(msg.req_id(), remote, txnDigest, *txn, retryTs,
           committedProof, abstain_conflict, false, isGossip); //forwarded messages dont need to be treated as original client.
       // BufferP1Result(result, committedProof, txnDigest);
+      if (result == proto::ConcurrencyControl::COMMIT) {
+        if (!EndorsementCheck(&msg, txn)) {
+          Panic("Endorsement check failed for txn %s", BytesToHex(txnDigest, 16).c_str());
+          result = proto::ConcurrencyControl::ABORT;
+        }
+      }
       HandlePhase1CB(&msg, result, committedProof, txnDigest, remote, abstain_conflict, isGossip);
       return (void*) true;
     }
@@ -597,6 +603,12 @@ void* Server::TryPrepare(proto::Phase1 &msg, const TransportAddress &remote, pro
         // BufferP1Result(*result, committedProof, txnDigest);
         //c->second.P1meta_mutex.unlock();
         //std::cerr << "[Normal] release lock for txn: " << BytesToHex(txnDigest, 64) << std::endl;
+        if (*result == proto::ConcurrencyControl::COMMIT) {
+          if (!EndorsementCheck(msg_ptr, txn)) {
+            Panic("Endorsement check failed for txn %s", BytesToHex(txnDigest, 16).c_str());
+            *result = proto::ConcurrencyControl::ABORT;
+          }
+        }
         HandlePhase1CB(msg_ptr, *result, committedProof, txnDigest, *remote_ptr, abstain_conflict, isGossip);
         delete result;
         return (void*) true;
