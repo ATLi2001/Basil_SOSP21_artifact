@@ -3596,12 +3596,14 @@ bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::
     }
 
     // check signature
-    if (!client_verifier->Verify(
-      keyManager->GetPublicKey(keyManager->GetClientKeyId(endorsement.process_id())), 
-      endorsement.data(), 
-      endorsement.signature())
-    ) {
-      return false;
+    if (params.sintr_params.signFinishValidation) {
+      if (!client_verifier->Verify(
+        keyManager->GetPublicKey(keyManager->GetClientKeyId(endorsement.process_id())), 
+        endorsement.data(), 
+        endorsement.signature())
+      ) {
+        return false;
+      }
     }
 
     endorsers.insert(endorsement.process_id());
