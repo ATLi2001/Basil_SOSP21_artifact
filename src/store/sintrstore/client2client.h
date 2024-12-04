@@ -62,7 +62,7 @@ namespace sintrstore {
 class Client2Client : public TransportReceiver, public PingInitiator, public PingTransport {
  public:
   Client2Client(transport::Configuration *config, transport::Configuration *clients_config, Transport *transport,
-      uint64_t client_id, uint64_t client_transport_id, uint64_t nshards, uint64_t ngroups, int group, bool pingClients,
+      uint64_t client_id, uint64_t nshards, uint64_t ngroups, int group, bool pingClients,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
       Partitioner *part,  EndorsementClient *endorseClient);
   virtual ~Client2Client();
@@ -81,7 +81,11 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   // forward server read reply to other peers
   void ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
     const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
-    const proto::Dependency &dep, bool hasDep, const EndorsementPolicy &policy);
+    const proto::Dependency &dep, bool hasDep);
+
+  // given a new policy, update the endorsement policy for this client 
+  // also contact additional peers as necessary
+  void HandlePolicyUpdate(const EndorsementPolicy &policy);
 
   void SetFailureFlag(bool f) {
     failureActive = f;
@@ -120,7 +124,6 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   void CreateHMACedMessage(const ::google::protobuf::Message &msg, proto::SignedMessage& signedMessage);
 
   const uint64_t client_id; // Unique ID for this client.
-  const uint64_t client_transport_id; // unique transport id for this client
   Transport *transport; // Transport layer.
   // client to server transport configuration state
   transport::Configuration *config;

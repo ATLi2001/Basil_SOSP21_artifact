@@ -48,7 +48,7 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
     Partitioner *part, bool syncCommit, uint64_t readMessages,
     uint64_t readQuorumSize, Parameters params,
     KeyManager *keyManager, uint64_t phase1DecisionTimeout, uint64_t consecutiveMax, TrueTime timeServer,
-    transport::Configuration *clients_config, uint64_t client_transport_id)
+    transport::Configuration *clients_config)
     : config(config), client_id(id), nshards(nShards), ngroups(nGroups),
     transport(transport), part(part), syncCommit(syncCommit), pingReplicas(pingReplicas),
     readMessages(readMessages), readQuorumSize(readQuorumSize),
@@ -57,7 +57,7 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
     timeServer(timeServer), first(true), startedPings(false),
     client_seq_num(0UL), lastReqId(0UL), getIdx(0UL),
     failureEnabled(false), failureActive(false), faulty_counter(0UL),
-    consecutiveMax(consecutiveMax), clients_config(clients_config), client_transport_id(client_transport_id) {
+    consecutiveMax(consecutiveMax), clients_config(clients_config) {
 
   Debug("Initializing Sintr client with id [%lu] %lu", client_id, nshards);
   std::cerr<< "P1 Decision Timeout: " <<phase1DecisionTimeout<< std::endl;
@@ -76,12 +76,12 @@ Client::Client(transport::Configuration *config, uint64_t id, int nShards,
         keyManager, verifier, timeServer, phase1DecisionTimeout, consecutiveMax));
   }
 
-  endorseClient = new EndorsementClient(client_id, client_transport_id, keyManager);
+  endorseClient = new EndorsementClient(client_id, keyManager);
 
   // create client for other clients
   // right now group is always 0, maybe configure later
   c2client = new Client2Client(
-    config, clients_config, transport, client_id, client_transport_id, nshards, ngroups, 0, 
+    config, clients_config, transport, client_id, nshards, ngroups, 0, 
     pingReplicas, params, keyManager, verifier, part, endorseClient
   );
 
@@ -227,8 +227,9 @@ void Client::Get(const std::string &key, get_callback gcb,
           policy = EndorsementPolicy(policyMsg);
           endorseClient->UpdateKeyPolicyIdCache(key, policyMsg.policy_id());
           endorseClient->UpdatePolicyCache(policyMsg.policy_id(), policy);
+          c2client->HandlePolicyUpdate(policy);
         }
-        c2client->ForwardReadResultMessage(key, val, ts, proof, serializedWrite, serializedWriteTypeName, dep, hasDep, policy);
+        c2client->ForwardReadResultMessage(key, val, ts, proof, serializedWrite, serializedWriteTypeName, dep, hasDep);
       }
       if (hasDep) {
         *txn.add_deps() = dep;
@@ -265,7 +266,14 @@ void Client::Put(const std::string &key, const std::string &value,
     write->set_key(key);
     write->set_value(value);
 
-
+    // look in cache for policy
+    EndorsementPolicy policy;
+    bool exists = endorseClient->GetPolicyFromCache(key, policy);
+    if (!exists) {
+      // if not found, use default policy for now
+      policy = EndorsementPolicy(2);
+    }
+    c2client->HandlePolicyUpdate(policy);
 
     // Buffering, so no need to wait.
     bclient[i]->Put(client_seq_num, key, value, pcb, ptcb, timeout);

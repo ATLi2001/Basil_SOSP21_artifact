@@ -40,12 +40,11 @@
 namespace sintrstore {
 
 Client2Client::Client2Client(transport::Configuration *config, transport::Configuration *clients_config, Transport *transport,
-      uint64_t client_id, uint64_t client_transport_id, uint64_t nshards, uint64_t ngroups, int group, bool pingClients,
+      uint64_t client_id, uint64_t nshards, uint64_t ngroups, int group, bool pingClients,
       Parameters params, KeyManager *keyManager, Verifier *verifier,
       Partitioner *part, EndorsementClient *endorseClient) :
       PingInitiator(this, transport, clients_config->n),
-      client_id(client_id), client_transport_id(client_transport_id), 
-      transport(transport), config(config), clients_config(clients_config), 
+      client_id(client_id), transport(transport), config(config), clients_config(clients_config), 
       nshards(nshards), ngroups(ngroups),
       group(group), part(part), pingClients(pingClients), params(params),
       keyManager(keyManager), verifier(verifier), endorseClient(endorseClient) {
@@ -55,10 +54,10 @@ Client2Client::Client2Client(transport::Configuration *config, transport::Config
 
   valClient = new ValidationClient(client_id, nshards, ngroups, part); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
-  transport->Register(this, *clients_config, group, client_transport_id); 
+  transport->Register(this, *clients_config, group, client_id); 
 
   // assume these are somehow secretly shared before hand
-  uint64_t idx = client_transport_id;
+  uint64_t idx = client_id;
   for (uint64_t i = 0; i < clients_config->n; i++) {
     if (i > idx) {
       sessionKeys[i] = std::string(8, (char) idx + 0x30) + std::string(8, (char) i + 0x30);
@@ -108,7 +107,7 @@ void Client2Client::ReceiveMessage(const TransportAddress &remote,
 
 bool Client2Client::SendPing(size_t replica, const PingMessage &ping) {
   // do not ping self
-  if (replica != client_transport_id) {
+  if (replica != client_id) {
     transport->SendMessageToReplica(this, group, replica, ping);
   }
   return true;
@@ -135,26 +134,7 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t client_seq_num, const s
 
 void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
     const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
-    const proto::Dependency &dep, bool hasDep, const EndorsementPolicy &policy) {
-  
-  EndorsementPolicy diffPolicy = endorseClient->UpdateRequirement(policy);
-  if (diffPolicy > EndorsementPolicy()) {
-    Debug("Initiating more beginValTxnMsg");
-    // need to initiate more endorsements
-    int numAdditional = static_cast<int>(diffPolicy.GetWeight());
-    for (const auto &client_id : diffPolicy.GetAccessControlList()) {
-      uint64_t transport_id = ClientIdToTransportId(client_id, params.sintr_params.clientThreadsPerProcess);
-      beginValSent.insert(transport_id);
-      numAdditional--;
-      transport->SendMessageToReplica(this, transport_id, sentBeginValTxnMsg);
-    }
-    if (numAdditional > 0) {
-      // send
-    }
-  }
-  else {
-    Debug("Received policy with weight %lu", policy.GetWeight());
-  }
+    const proto::Dependency &dep, bool hasDep) {
 
   proto::ForwardReadResultMessage fwdReadResultMsg = proto::ForwardReadResultMessage();
   fwdReadResultMsg.set_client_id(client_id);
@@ -218,6 +198,45 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
     BytesToHex(value, 16).c_str()
   );
   transport->SendMessageToAll(this, fwdReadResultMsg);
+}
+
+void Client2Client::HandlePolicyUpdate(const EndorsementPolicy &policy) {
+  EndorsementPolicy diffPolicy = endorseClient->UpdateRequirement(policy);
+  if (diffPolicy > EndorsementPolicy()) {
+    Debug("Initiating more beginValTxnMsg");
+    // need to initiate more endorsements
+    int numAdditional = static_cast<int>(diffPolicy.GetWeight());
+    for (const auto &acl_client_id : diffPolicy.GetAccessControlList()) {
+      auto ret = beginValSent.insert(acl_client_id);
+      if (ret.second == false) {
+        Panic("Client %lu already sent beginValTxnMsg", acl_client_id);
+      }
+      numAdditional--;
+      transport->SendMessageToReplica(this, acl_client_id, sentBeginValTxnMsg);
+    }
+
+    int last_offset = 1;
+    while (numAdditional > 0) {
+      bool sent = false;
+      for (; last_offset < clients_config->n; last_offset++) {
+        // try to send to the next client after this client id
+        uint64_t target = (this->client_id + last_offset) % clients_config->n;
+        if (beginValSent.find(target) == beginValSent.end()) {
+          beginValSent.insert(target);
+          transport->SendMessageToReplica(this, target, sentBeginValTxnMsg);
+          sent = true;
+          break;
+        }
+      }
+      if (!sent) {
+        Panic("Policy requires more endorsements than available clients");
+      }
+      numAdditional--;
+    }
+  }
+  else {
+    Debug("Received policy with weight %lu", policy.GetWeight());
+  }
 }
 
 void Client2Client::HandleBeginValidateTxnMessage(const TransportAddress &remote, 
@@ -476,8 +495,8 @@ void Client2Client::ValidationThreadFunction() {
         proto::SignedMessage signedMessage;
         SignMessage(
           &valTxnDigest, 
-          keyManager->GetPrivateKey(keyManager->GetClientKeyId(client_transport_id)), 
-          client_transport_id, 
+          keyManager->GetPrivateKey(keyManager->GetClientKeyId(client_id)), 
+          client_id, 
           &signedMessage
         );
         *finishValTxnMsg.mutable_signed_validation_txn_digest() = signedMessage;
@@ -506,7 +525,7 @@ bool Client2Client::ValidateHMACedMessage(const proto::SignedMessage &signedMess
   hmacs.ParseFromString(signedMessage.signature());
   return crypto::verifyHMAC(
     signedMessage.data(), 
-    (*hmacs.mutable_hmacs())[client_transport_id], 
+    (*hmacs.mutable_hmacs())[client_id], 
     sessionKeys[signedMessage.process_id() % clients_config->n]
   );
 }
@@ -514,7 +533,7 @@ bool Client2Client::ValidateHMACedMessage(const proto::SignedMessage &signedMess
 void Client2Client::CreateHMACedMessage(const ::google::protobuf::Message &msg, proto::SignedMessage& signedMessage) {
   std::string msgData = msg.SerializeAsString();
   signedMessage.set_data(msgData);
-  signedMessage.set_process_id(client_transport_id);
+  signedMessage.set_process_id(client_id);
   proto::HMACs hmacs;
   for (uint64_t i = 0; i < clients_config->n; i++) {
     (*hmacs.mutable_hmacs())[i] = crypto::HMAC(msgData, sessionKeys[i]);

@@ -343,9 +343,6 @@ inline static bool sortWriteByKey(const WriteMessage &lhs, const WriteMessage &r
 
 int64_t GetLogGroup(const proto::Transaction &txn, const std::string &txnDigest);
 
-// helper function for converting client ids to client transport ids
-uint64_t ClientIdToTransportId(uint64_t client_id, uint64_t clientThreadsPerProcess);
-
 // enum InjectFailureType {
 //   CLIENT_EQUIVOCATE = 0,
 //   CLIENT_CRASH = 1,
@@ -371,15 +368,13 @@ typedef struct SintrParameters {
   const bool signFwdReadResults; // sign (and validate) forward read results
   const bool signFinishValidation; // sign (and validate) finish validation messages
   const bool debugEndorseCheck; // debug endorsement check
-  const uint64_t clientThreadsPerProcess; // number of client threads per client process
 
   SintrParameters(uint64_t maxValThreads, bool signFwdReadResults, bool signFinishValidation,
-    bool debugEndorseCheck, uint64_t clientThreadsPerProcess) :
+    bool debugEndorseCheck) :
     maxValThreads(maxValThreads), 
     signFwdReadResults(signFwdReadResults), 
     signFinishValidation(signFinishValidation),
-    debugEndorseCheck(debugEndorseCheck),
-    clientThreadsPerProcess(clientThreadsPerProcess) {}
+    debugEndorseCheck(debugEndorseCheck) {}
 } SintrParameters;
 
 typedef struct Parameters {

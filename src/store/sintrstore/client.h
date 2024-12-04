@@ -76,7 +76,7 @@ class Client : public ::Client {
       Parameters params, KeyManager *keyManager, uint64_t phase1DecisionTimeout,
       uint64_t consecutiveMax = 1UL,
       TrueTime timeserver = TrueTime(0,0),
-      transport::Configuration *clients_config = NULL, uint64_t client_transport_id = 0);
+      transport::Configuration *clients_config = NULL);
   virtual ~Client();
 
   // Begin a transaction.
@@ -252,9 +252,6 @@ class Client : public ::Client {
   transport::Configuration *clients_config;
   // Unique ID for this client.
   uint64_t client_id;
-  // given a certain number of processes and clients per process, client_id is not necessarily consecutive across processes
-  // but for client to client communication configuration, we need a client_transport_id that is consecutive
-  uint64_t client_transport_id;
   // Number of shards.
   uint64_t nshards;
   // Number of replica groups.

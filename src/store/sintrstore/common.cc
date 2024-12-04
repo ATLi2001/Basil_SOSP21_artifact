@@ -1914,11 +1914,4 @@ int64_t GetLogGroup(const proto::Transaction &txn, const std::string &txnDigest)
   return txn.involved_groups(groupIdx);
 }
 
-uint64_t ClientIdToTransportId(uint64_t client_id, uint64_t clientThreadsPerProcess) {
-  // client_id = (process_id << 6) | thread_id;
-  uint64_t process_id = client_id >> 6;
-  uint64_t thread_id = client_id & ((1 << 6) - 1); // isolate last 6 bits by creating mask
-  return clientThreadsPerProcess * process_id + thread_id;
-}
-
 } // namespace sintrstore

@@ -40,8 +40,8 @@ namespace sintrstore {
 // this class keeps state for an ongoing transaction endorsement
 class EndorsementClient {
  public:
-  EndorsementClient(uint64_t client_id, uint64_t client_transport_id, KeyManager *keyManager);
-  EndorsementClient(uint64_t client_id, uint64_t client_transport_id, KeyManager *keyManager, EndorsementPolicy policy);
+  EndorsementClient(uint64_t client_id, KeyManager *keyManager);
+  EndorsementClient(uint64_t client_id, KeyManager *keyManager, EndorsementPolicy policy);
   ~EndorsementClient();
 
   EndorsementPolicy GetPolicy();
@@ -58,14 +58,15 @@ class EndorsementClient {
   bool IsSatisfied();
   void Reset();
 
-  EndorsementPolicy GetPolicyFromCache(const std::string &key);
+  // update policy to be corresponding to the given key
+  // return true if policy exists for key, false otherwise
+  bool GetPolicyFromCache(const std::string &key, EndorsementPolicy &policy);
   void UpdateKeyPolicyIdCache(const std::string &key, uint64_t policyId);
   void UpdatePolicyCache(uint64_t policyId, const EndorsementPolicy &policy);
 
  private:
   // this client information
   const uint64_t client_id;
-  const uint64_t client_transport_id;
   KeyManager *keyManager;
 
   // client side cache of policy store

@@ -33,12 +33,10 @@
 
 namespace sintrstore {
 
-EndorsementClient::EndorsementClient(uint64_t client_id, uint64_t client_transport_id,
-  KeyManager *keyManager) : 
-  client_id(client_id), client_transport_id(client_transport_id), keyManager(keyManager) {}
-EndorsementClient::EndorsementClient(uint64_t client_id, uint64_t client_transport_id,
-  KeyManager *keyManager, EndorsementPolicy policy) :
-  client_id(client_id), client_transport_id(client_transport_id), keyManager(keyManager), policy(policy) {}
+EndorsementClient::EndorsementClient(uint64_t client_id, KeyManager *keyManager) : 
+  client_id(client_id), keyManager(keyManager) {}
+EndorsementClient::EndorsementClient(uint64_t client_id, KeyManager *keyManager, EndorsementPolicy policy) :
+  client_id(client_id), keyManager(keyManager), policy(policy) {}
 EndorsementClient::~EndorsementClient() {}
 
 void EndorsementClient::SetClientSeqNum(uint64_t client_seq_num) {
@@ -64,8 +62,8 @@ void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedTxnDiges
   proto::SignedMessage signedMessage;
   SignMessage(
     &protoExpectedValTxnDigest, 
-    keyManager->GetPrivateKey(keyManager->GetClientKeyId(client_transport_id)), 
-    client_transport_id, 
+    keyManager->GetPrivateKey(keyManager->GetClientKeyId(client_id)), 
+    client_id, 
     &signedMessage
   );
   endorsements.push_back(signedMessage);
@@ -228,18 +226,19 @@ void EndorsementClient::Reset() {
   pendingEndorsements.clear();
 }
 
-EndorsementPolicy EndorsementClient::GetPolicyFromCache(const std::string &key) {
+bool EndorsementClient::GetPolicyFromCache(const std::string &key, EndorsementPolicy &policy) {
   auto it = keyPolicyIdCache.find(key);
   if (it == keyPolicyIdCache.end()) {
-    return EndorsementPolicy();
+    return false;
   }
   uint64_t policyId = it->second;
   auto it2 = policyCache.find(policyId);
   if (it2 == policyCache.end()) {
-    return EndorsementPolicy();
+    return false;
   }
 
-  return it2->second;
+  policy = it2->second;
+  return true;
 }
 
 void EndorsementClient::UpdateKeyPolicyIdCache(const std::string &key, uint64_t policyId) {

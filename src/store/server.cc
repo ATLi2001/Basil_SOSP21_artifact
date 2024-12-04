@@ -641,8 +641,7 @@ int main(int argc, char **argv) {
       sintrstore::SintrParameters sintr_params(
         0, false,
         FLAGS_sintr_sign_finish_validation,
-        false,
-        FLAGS_num_client_threads
+        false
       );
 
       sintrstore::Parameters params(FLAGS_indicus_sign_messages,
