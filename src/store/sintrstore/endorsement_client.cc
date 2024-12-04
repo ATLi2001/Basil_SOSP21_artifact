@@ -55,18 +55,6 @@ void EndorsementClient::SetExpectedTxnOutput(const std::string &expectedTxnDiges
   this->expectedTxnDigest = expectedTxnDigest;
   // add self as an endorsement
   client_ids_received.insert(client_id);
-  proto::ValidationTxnDigest protoExpectedValTxnDigest;
-  protoExpectedValTxnDigest.set_client_id(client_id);
-  protoExpectedValTxnDigest.set_client_seq_num(client_seq_num);
-  protoExpectedValTxnDigest.set_digest(expectedTxnDigest);
-  proto::SignedMessage signedMessage;
-  SignMessage(
-    &protoExpectedValTxnDigest, 
-    keyManager->GetPrivateKey(keyManager->GetClientKeyId(client_id)), 
-    client_id, 
-    &signedMessage
-  );
-  endorsements.push_back(signedMessage);
   
   // now also check pendingEndorsements
   for (auto const &it : pendingEndorsements) {

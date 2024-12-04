@@ -435,7 +435,7 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
   uint64_t peer_client_id = finishValTxnMsg.client_id();
 
   proto::SignedMessage signedMsg;
-  proto::ValidationTxnDigest valTxnDigest;
+  std::string valTxnDigest;
   if (params.sintr_params.signFinishValidation) {
     // verify signature
     if (!finishValTxnMsg.has_signed_validation_txn_digest()) {
@@ -448,27 +448,19 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
       Debug("Invalid signature on validation txn digest sent from client id %lu", peer_client_id);
       return;
     }
-    if (!valTxnDigest.ParseFromString(signedMsg.data())) {
-      Debug("Invalid serialization of validation txn digest sent from client id %lu", peer_client_id);
-      return;
-    }
+    valTxnDigest = signedMsg.data();
   }
   else {
     valTxnDigest = finishValTxnMsg.validation_txn_digest();
   }
 
-  uint64_t intended_client_id = valTxnDigest.client_id();
-  if (intended_client_id != client_id) {
-    Debug("Received unexpected FinishValidationTxnMessage. Intended for client id %lu, I am client id %lu", intended_client_id, client_id);
-    return;
-  }
-  Debug("HandleFinishValidateTxnMessage: from client id %lu, for my seq num %lu", peer_client_id, valTxnDigest.client_seq_num());
+  Debug("HandleFinishValidateTxnMessage: txn digest %s", BytesToHex(valTxnDigest, 16).c_str());
 
   if (params.sintr_params.debugEndorseCheck) {
     endorseClient->DebugCheck(finishValTxnMsg.val_txn());
   }
 
-  endorseClient->AddValidation(peer_client_id, valTxnDigest.digest(), signedMsg);
+  endorseClient->AddValidation(peer_client_id, valTxnDigest, signedMsg);
 }
 
 void Client2Client::ValidationThreadFunction() {
@@ -502,16 +494,11 @@ void Client2Client::ValidationThreadFunction() {
 
       // only send over digest, not actual contents
       std::string digest = TransactionDigest(*txn, params.hashDigest);
-      proto::ValidationTxnDigest valTxnDigest = proto::ValidationTxnDigest(); 
-      valTxnDigest.set_client_id(curr_client_id);
-      valTxnDigest.set_client_seq_num(curr_client_seq_num);
-      valTxnDigest.set_digest(digest);
-
       if (params.sintr_params.signFinishValidation) {
         // sign the digest
         proto::SignedMessage signedMessage;
-        SignMessage(
-          &valTxnDigest, 
+        SignBytes(
+          digest, 
           keyManager->GetPrivateKey(keyManager->GetClientKeyId(client_id)), 
           client_id, 
           &signedMessage
@@ -519,7 +506,7 @@ void Client2Client::ValidationThreadFunction() {
         *finishValTxnMsg.mutable_signed_validation_txn_digest() = signedMessage;
       }
       else {
-        *finishValTxnMsg.mutable_validation_txn_digest() = valTxnDigest;
+        finishValTxnMsg.set_validation_txn_digest(digest);
       }
 
       if (params.sintr_params.debugEndorseCheck) {

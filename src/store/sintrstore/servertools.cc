@@ -564,7 +564,7 @@ void* Server::TryPrepare(proto::Phase1 &msg, const TransportAddress &remote, pro
           committedProof, abstain_conflict, false, isGossip); //forwarded messages dont need to be treated as original client.
       // BufferP1Result(result, committedProof, txnDigest);
       if (result == proto::ConcurrencyControl::COMMIT) {
-        if (!EndorsementCheck(&msg, txn)) {
+        if (!EndorsementCheck(&msg, txnDigest, txn)) {
           Panic("Endorsement check failed for txn %s", BytesToHex(txnDigest, 16).c_str());
           result = proto::ConcurrencyControl::ABORT;
         }
@@ -604,7 +604,7 @@ void* Server::TryPrepare(proto::Phase1 &msg, const TransportAddress &remote, pro
         //c->second.P1meta_mutex.unlock();
         //std::cerr << "[Normal] release lock for txn: " << BytesToHex(txnDigest, 64) << std::endl;
         if (*result == proto::ConcurrencyControl::COMMIT) {
-          if (!EndorsementCheck(msg_ptr, txn)) {
+          if (!EndorsementCheck(msg_ptr, txnDigest, txn)) {
             Panic("Endorsement check failed for txn %s", BytesToHex(txnDigest, 16).c_str());
             *result = proto::ConcurrencyControl::ABORT;
           }

@@ -454,11 +454,13 @@ class Server : public TransportReceiver, public ::Server, public PingServer {
   }
 
   // perform check on endorsements in the Phase1 msg with respect to txn
-  bool EndorsementCheck(const proto::Phase1 *msg, const proto::Transaction *txn);
+  bool EndorsementCheck(const proto::Phase1 *msg, const std::string &txnDigest, const proto::Transaction *txn);
   // fill in policy from a transaction readset writeset
   void ExtractPolicy(const proto::Transaction *txn, EndorsementPolicy &policy);
   // validate endorsements have valid signatures and matching data, and satisfy the policy
-  bool ValidateEndorsements(const EndorsementPolicy &policy, const proto::SignedMessages &endorsements);
+  // client id is for the client that initiated the transaction
+  bool ValidateEndorsements(const EndorsementPolicy &policy, const proto::SignedMessages &endorsements, 
+    uint64_t client_id, const std::string &txnDigest);
 
   const transport::Configuration &config;
   const int groupIdx;

@@ -123,6 +123,10 @@ template<typename T> static void* pointerWrapper(std::function<T()> func){
 
 void* BoolPointerWrapper(std::function<bool()> func);
 
+void SignBytes(const std::string &data, 
+    crypto::PrivKey* privateKey, uint64_t processId, 
+    proto::SignedMessage *signedMessage);
+
 void SignMessage(const ::google::protobuf::Message* msg,
     crypto::PrivKey* privateKey, uint64_t processId,
     proto::SignedMessage *signedMessage);

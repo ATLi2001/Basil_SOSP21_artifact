@@ -416,17 +416,11 @@ message ForwardReadResultMessage {
   optional Dependency dep = 8;
 }
 
-message ValidationTxnDigest {
-  required uint64 client_id = 1;
-  required uint64 client_seq_num = 2;
-  required bytes digest = 3;
-}
-
 message FinishValidateTxnMessage {
   // client_id is the client that is sending this message
   required uint64 client_id = 1;
   oneof validation_one_of {
-    ValidationTxnDigest validation_txn_digest = 2;
+    bytes validation_txn_digest = 2;
     SignedMessage signed_validation_txn_digest = 3;
   }
   // optionally can compare entire transaction directly

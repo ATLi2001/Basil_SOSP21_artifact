@@ -683,7 +683,7 @@ void Server::Inform_P1_GC_Leader(proto::Phase1Reply &reply, proto::Transaction &
 void Server::HandlePhase1(const TransportAddress &remote,
     proto::Phase1 &msg) {
   //dummyTx = msg.txn(); //PURELY TESTING PURPOSES!!: NOTE WARNING
- UW_ASSERT(msg.endorsements().sig_msgs_size() == 2);
+ UW_ASSERT(msg.endorsements().sig_msgs_size() == 1);
  Debug("Received Phase1 message");
   proto::Transaction *txn;
   if(params.signClientProposals){
@@ -3512,10 +3512,10 @@ void Server::ProcessMoveView(const std::string &txnDigest, uint64_t proposed_vie
   q.release();
 }
 
-bool Server::EndorsementCheck(const proto::Phase1 *msg, const proto::Transaction *txn) {
+bool Server::EndorsementCheck(const proto::Phase1 *msg, const std::string &txnDigest, const proto::Transaction *txn) {
   EndorsementPolicy policy;
   ExtractPolicy(txn, policy);
-  return ValidateEndorsements(policy, msg->endorsements());
+  return ValidateEndorsements(policy, msg->endorsements(), txn->client_id(), txnDigest);
 }
 
 void Server::ExtractPolicy(const proto::Transaction *txn, EndorsementPolicy &policy) {
@@ -3579,19 +3579,18 @@ void Server::ExtractPolicy(const proto::Transaction *txn, EndorsementPolicy &pol
   }
 }
 
-bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::SignedMessages &endorsements) {
+bool Server::ValidateEndorsements(const EndorsementPolicy &policy, const proto::SignedMessages &endorsements, 
+    uint64_t client_id, const std::string &txnDigest) {
+
   std::set<uint64_t> endorsers;
-  std::string txnDigest;
+  endorsers.insert(client_id);
   for (const auto &endorsement : endorsements.sig_msgs()) {
     // cannot have empty data
     if (endorsement.data().length() == 0) {
       return false;
     }
     // then check that data is all same as well
-    if (txnDigest.length() == 0) {
-      txnDigest = endorsement.data();
-    } 
-    else if (txnDigest != endorsement.data()) {
+    if (txnDigest != endorsement.data()) {
       return false;
     }
 
