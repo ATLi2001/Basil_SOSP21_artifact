@@ -147,6 +147,8 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   std::set<int> beginValSent;
   // track most recently sent begin validation message
   proto::BeginValidateTxnMessage sentBeginValTxnMsg;
+  // track all sent forward read results for current transaction
+  std::vector<proto::ForwardReadResultMessage> sentFwdReadResults;
   // endorsement client can inform client of received validations
   EndorsementClient *endorseClient;
 

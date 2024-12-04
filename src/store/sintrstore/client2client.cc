@@ -125,11 +125,18 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t client_seq_num, const s
   sentBeginValTxnMsg.mutable_timestamp()->set_timestamp(txnStartTime);
   sentBeginValTxnMsg.mutable_timestamp()->set_id(client_id);
 
-  Debug("SendToAll beginValTxnMsg client id %lu, seq num %lu", client_id, client_seq_num);
+  beginValSent.clear();
+  sentFwdReadResults.clear();
+
+  Debug("beginValTxnMsg client id %lu, seq num %lu", client_id, client_seq_num);
   for (int i = 0; i < clients_config->n; i++) {
+    // do not send to self
+    if (i == client_id) {
+      continue;
+    }
     beginValSent.insert(i);
+    transport->SendMessageToReplica(this, i, sentBeginValTxnMsg);
   }
-  transport->SendMessageToAll(this, sentBeginValTxnMsg);
 }
 
 void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
@@ -190,14 +197,18 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
     }
   }
 
+  sentFwdReadResults.push_back(fwdReadResultMsg);
+
   Debug(
-    "SendToAll ForwardReadResult: client id %lu, seq num %lu, key %s, value %s",
+    "ForwardReadResult: client id %lu, seq num %lu, key %s, value %s",
     client_id,
     client_seq_num,
     BytesToHex(key, 16).c_str(),
     BytesToHex(value, 16).c_str()
   );
-  transport->SendMessageToAll(this, fwdReadResultMsg);
+  for (const auto &i : beginValSent) {
+    transport->SendMessageToReplica(this, i, fwdReadResultMsg);
+  }
 }
 
 void Client2Client::HandlePolicyUpdate(const EndorsementPolicy &policy) {
@@ -213,6 +224,9 @@ void Client2Client::HandlePolicyUpdate(const EndorsementPolicy &policy) {
       }
       numAdditional--;
       transport->SendMessageToReplica(this, acl_client_id, sentBeginValTxnMsg);
+      for (const auto &fwdReadResultMsg : sentFwdReadResults) {
+        transport->SendMessageToReplica(this, acl_client_id, fwdReadResultMsg);
+      }
     }
 
     int last_offset = 1;
@@ -224,6 +238,9 @@ void Client2Client::HandlePolicyUpdate(const EndorsementPolicy &policy) {
         if (beginValSent.find(target) == beginValSent.end()) {
           beginValSent.insert(target);
           transport->SendMessageToReplica(this, target, sentBeginValTxnMsg);
+          for (const auto &fwdReadResultMsg : sentFwdReadResults) {
+            transport->SendMessageToReplica(this, target, fwdReadResultMsg);
+          }
           sent = true;
           break;
         }
