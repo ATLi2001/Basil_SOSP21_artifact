@@ -1,4 +1,4 @@
-ARG nproc=2
+ARG nproc=4
 
 FROM amd64/ubuntu:20.04
 ENV TZ="America/New_York" \
@@ -16,6 +16,14 @@ RUN apt-get install -y autoconf automake libtool curl make g++ unzip valgrind cm
 RUN apt install -y libsodium-dev libgflags-dev libssl-dev libevent-dev libevent-openssl-2.1-7 libevent-pthreads-2.1-7 libboost-all-dev libuv1-dev ncurses-term
 
 RUN mkdir dependencies
+WORKDIR /home/dependencies
+
+# Installing jemalloc
+RUN git clone https://github.com/jemalloc/jemalloc
+WORKDIR /home/dependencies/jemalloc
+RUN ./autogen.sh
+RUN make
+RUN make install
 WORKDIR /home/dependencies
 
 # Installing google test
@@ -79,6 +87,9 @@ WORKDIR /home/dependencies
 # Installing Intel TBB
 RUN wget https://registrationcenter-download.intel.com/akdlm/IRC_NAS/e6ff8e9c-ee28-47fb-abd7-5c524c983e1c/l_BaseKit_p_2024.2.1.100.sh
 RUN sh ./l_BaseKit_p_2024.2.1.100.sh -a --silent --eula accept --components intel.oneapi.lin.tbb.devel
-# RUN source /opt/intel/oneapi/setvars.sh
 
 WORKDIR /home
+
+# The following must be run each time starting up a docker container from this image
+# source /opt/intel/oneapi/setvars.sh
+# export LD_PRELOAD=/usr/local/lib/libjemalloc.so
