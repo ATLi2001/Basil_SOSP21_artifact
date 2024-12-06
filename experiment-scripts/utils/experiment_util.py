@@ -203,6 +203,9 @@ def start_clients(config, local_exp_directory, remote_exp_directory, run):
                     cmd4 = 'export LD_LIBRARY_PATH=/usr/lib/jvm/java-11-openjdk-amd64/lib/server/:$LD_LIBRARY_PATH;'
                     appended_client_commands = cmd4 + appended_client_commands
 
+                    cmd5 = 'export LD_PRELOAD=/usr/local/lib/libjemalloc.so; '
+                    appended_client_commands = cmd5 + appended_client_commands
+
                     client_processes.append(run_remote_command_async(
                         appended_client_commands + ' & wait', config['emulab_user'],
                         client_host, False))
@@ -262,6 +265,10 @@ def start_servers(config, local_exp_directory, remote_exp_directory, run):
             cmd =  cmd3 + cmd
             cmd4 = 'export LD_LIBRARY_PATH=/usr/lib/jvm/java-11-openjdk-amd64/lib/server/:$LD_LIBRARY_PATH;'
             cmd = cmd4 + cmd
+
+            cmd5 = 'export LD_PRELOAD=/usr/local/lib/libjemalloc.so; '
+            cmd = cmd5 + cmd
+            
             server_threads.append(run_remote_command_async(cmd,
                 config['emulab_user'], server_host, detach=False))
         else:

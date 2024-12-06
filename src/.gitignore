@@ -1,4 +1,5 @@
 .obj/
+bin/
 
 .DS_Store
 
@@ -115,3 +116,4 @@ tags
 *.exe
 *.out
 *.app
+*.raw
