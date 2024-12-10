@@ -30,8 +30,8 @@
 
 namespace sintrstore {
 
-ValidationClient::ValidationClient(uint64_t client_id, uint64_t nshards, uint64_t ngroups, Partitioner *part) : 
-  client_id(client_id), nshards(nshards), ngroups(ngroups), part(part) {}
+ValidationClient::ValidationClient(Transport *transport, uint64_t client_id, uint64_t nshards, uint64_t ngroups, Partitioner *part) : 
+  transport(transport), client_id(client_id), nshards(nshards), ngroups(ngroups), part(part) {}
 
 ValidationClient::~ValidationClient() {
 }
@@ -56,7 +56,7 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
   // define callback for when get completes
   validation_read_callback vrcb = [gcb, this](int status, uint64_t txn_client_id, uint64_t txn_client_seq_num, 
       const std::string &key, const std::string &value, const Timestamp &ts) {
-
+    
     Debug("validation_read_callback on key %s, value %s", BytesToHex(key, 16).c_str(), BytesToHex(value, 16).c_str());
     gcb(status, key, value, ts);
   };
@@ -103,6 +103,28 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
   pendingGet->vrtcb = gtcb;
 
   a->second->pendingGets.push_back(pendingGet);
+
+  pendingGet->timeout = new Timeout(transport, 2000, [this, txn_id, pendingGet]() {
+    allValTxnStatesMap::accessor a;
+    if (!allValTxnStates.find(a, txn_id)) {
+      // transaction has completed
+      return;
+    }
+    std::vector<PendingValidationGet *> pendingGets = a->second->pendingGets;
+
+    auto reqs_itr = std::find_if(
+      pendingGets.begin(), pendingGets.end(), 
+      [curr_key=pendingGet->key](const PendingValidationGet *req) { return req->key == curr_key; }
+    );
+    if (reqs_itr == pendingGets.end()) {
+      // pendingGet fulfilled
+      return;
+    }
+    Panic("Timeout triggered for txn_id %s key %s", txn_id.c_str(), pendingGet->key.c_str());
+    // pendingGet->vrtcb(REPLY_TIMEOUT, pendingGet->key);
+  });
+
+  pendingGet->timeout->Reset();
 }
 
 void ValidationClient::Put(const std::string &key, const std::string &value,
@@ -180,7 +202,7 @@ void ValidationClient::SetTxnTimestamp(uint64_t txn_client_id, uint64_t txn_clie
 }
 
 void ValidationClient::ProcessForwardReadResult(uint64_t txn_client_id, uint64_t txn_client_seq_num, 
-    const proto::ForwardReadResult &fwdReadResult, const proto::Dependency &dep, bool hasDep) {
+    const proto::ForwardReadResult &fwdReadResult, const proto::Dependency &dep, bool hasDep, bool addReadset) {
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
   Timestamp curr_ts = Timestamp(fwdReadResult.timestamp());
@@ -192,8 +214,10 @@ void ValidationClient::ProcessForwardReadResult(uint64_t txn_client_id, uint64_t
   );
 
   // lambda for editing txn state
-  auto editTxnStateCB = [this, &curr_key, &curr_value, &curr_ts, &dep, hasDep](AllValidationTxnState *allValTxnState) {
-    AddReadset(allValTxnState, curr_key, curr_value, curr_ts);
+  auto editTxnStateCB = [this, &curr_key, &curr_value, &curr_ts, &dep, hasDep, addReadset](AllValidationTxnState *allValTxnState) {
+    if (addReadset) {
+      AddReadset(allValTxnState, curr_key, curr_value, curr_ts);
+    }
     if (hasDep) {
       AddDep(allValTxnState, dep);
     }

@@ -52,7 +52,7 @@ Client2Client::Client2Client(transport::Configuration *config, transport::Config
   // separate verifier from main client instance
   clients_verifier = new BasicVerifier(transport);
 
-  valClient = new ValidationClient(client_id, nshards, ngroups, part); 
+  valClient = new ValidationClient(transport, client_id, nshards, ngroups, part); 
   valParseClient = new ValidationParseClient(10000); // TODO: pass arg for timeout length
   transport->Register(this, *clients_config, group, client_id); 
 
@@ -141,7 +141,7 @@ void Client2Client::SendBeginValidateTxnMessage(uint64_t client_seq_num, const s
 
 void Client2Client::ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
     const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
-    const proto::Dependency &dep, bool hasDep) {
+    const proto::Dependency &dep, bool hasDep, bool addReadset) {
 
   proto::ForwardReadResultMessage fwdReadResultMsg = proto::ForwardReadResultMessage();
   fwdReadResultMsg.set_client_id(client_id);
@@ -161,41 +161,47 @@ void Client2Client::ForwardReadResultMessage(const std::string &key, const std::
     *fwdReadResultMsg.mutable_fwd_read_result() = fwdReadResult;
   }
 
-  // this will contain the prepared txn dependency
-  if (hasDep) {
-    *fwdReadResultMsg.mutable_dep() = dep;
-    // must be oneof write or signed write
-    *fwdReadResultMsg.mutable_write() = proto::Write();
-    UW_ASSERT(dep.IsInitialized());
-  }
-  else {
-    if (params.validateProofs) {
-      if (proof.IsInitialized()) {
-        *fwdReadResultMsg.mutable_proof() = proof;
-      }
-      // if no proof then it is possible the value is empty
-      else {
-        UW_ASSERT(value.length() == 0);
-      }
-    }
-
-    // depending on if signatures are enabled and if the value is non empty
-    proto::SignedMessage signedWrite;
-    proto::Write write;
-    if (serializedWriteTypeName == signedWrite.GetTypeName()) {
-      signedWrite.ParseFromString(serializedWrite);
-      *fwdReadResultMsg.mutable_signed_write() = signedWrite;
-    }
-    else if (serializedWriteTypeName == write.GetTypeName()) {
-      write.ParseFromString(serializedWrite);
-      *fwdReadResultMsg.mutable_write() = write;
+  // only if addReadset is true did this result come from server
+  // otherwise it came from the buffer and there is no dependency or committed proof
+  if (addReadset) {
+    // this will contain the prepared txn dependency
+    if (hasDep) {
+      *fwdReadResultMsg.mutable_dep() = dep;
+      // must be oneof write or signed write
+      *fwdReadResultMsg.mutable_write() = proto::Write();
+      UW_ASSERT(dep.IsInitialized());
     }
     else {
-      // this should only happen if value is empty
-      UW_ASSERT(value.length() == 0);
-      *fwdReadResultMsg.mutable_write() = write;
+      if (params.validateProofs) {
+        if (proof.IsInitialized()) {
+          *fwdReadResultMsg.mutable_proof() = proof;
+        }
+        // if no proof then it is possible the value is empty
+        else {
+          UW_ASSERT(value.length() == 0);
+        }
+      }
+
+      // depending on if signatures are enabled and if the value is non empty
+      proto::SignedMessage signedWrite;
+      proto::Write write;
+      if (serializedWriteTypeName == signedWrite.GetTypeName()) {
+        signedWrite.ParseFromString(serializedWrite);
+        *fwdReadResultMsg.mutable_signed_write() = signedWrite;
+      }
+      else if (serializedWriteTypeName == write.GetTypeName()) {
+        write.ParseFromString(serializedWrite);
+        *fwdReadResultMsg.mutable_write() = write;
+      }
+      else {
+        // this should only happen if value is empty
+        UW_ASSERT(value.length() == 0);
+        *fwdReadResultMsg.mutable_write() = write;
+      }
     }
   }
+
+  fwdReadResultMsg.set_add_readset(addReadset);
 
   sentFwdReadResults.push_back(fwdReadResultMsg);
 
@@ -302,122 +308,49 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
     fwdReadResult = fwdReadResultMsg.fwd_read_result();
   }
 
-  proto::Write write;
-  bool hasDep = false;
-  proto::Dependency dep;
-  // if has dependency, then this is based on a prepared txn
-  if (fwdReadResultMsg.has_dep()) {
-    if (params.validateProofs && params.signedMessages && params.verifyDeps) {
-      if (!ValidateDependency(fwdReadResultMsg.dep(), config, params.readDepSize, 
-          keyManager, verifier)) {
-        Debug(
-          "Invalid dependency on forwarded read result from client id %lu, seq num %lu",
-          curr_client_id, 
-          curr_client_seq_num
-        );
-        return;
-      }
-    }
-    hasDep = true;
-    dep = fwdReadResultMsg.dep();
-    write = fwdReadResultMsg.dep().write();
-  } 
-  else {
-    // otherwise can check committed proof and signature
-
-    if (params.validateProofs && params.signedMessages) {
-      // check server signature
-      if (fwdReadResultMsg.has_signed_write()) {
-        proto::SignedMessage signedWrite = fwdReadResultMsg.signed_write();
-        if (!verifier->Verify(keyManager->GetPublicKey(signedWrite.process_id()),
-            signedWrite.data(), signedWrite.signature())) {
-          Debug(
-            "Invalid server signature on forwarded read result from client id %lu, seq num %lu", 
-            curr_client_id, 
-            curr_client_seq_num
-          );
-          return;
-        }
-
-        write.ParseFromString(signedWrite.data());
-      }
-      else {
-        if (fwdReadResultMsg.has_write() && fwdReadResultMsg.write().has_committed_value()) {
-          Debug(
-            "Missing server signature on forwarded read result with committed value from client id %lu, seq num %lu", 
-            curr_client_id, 
-            curr_client_seq_num
-          );
-          return;
-        }
-
-        write = fwdReadResultMsg.write();
-      }
-    }
-    else {
-      write = fwdReadResultMsg.write();
-    }
-      
-    if (params.validateProofs) {
-      // check committed proof
-      if (write.has_committed_value() && write.has_committed_timestamp()) {
-        if (!fwdReadResultMsg.has_proof()) {
-          Debug(
-            "Missing committed value proof for forwarded read result from client id %lu, seq num %lu",
-            curr_client_id,
-            curr_client_seq_num
-          );
-          return;
-        }
-        
-        std::string committedTxnDigest = TransactionDigest(fwdReadResultMsg.proof().txn(), params.hashDigest);
-        if (!ValidateTransactionWrite(fwdReadResultMsg.proof(), &committedTxnDigest,
-            write.key(), write.committed_value(), write.committed_timestamp(),
-            config, params.signedMessages, keyManager, verifier)) {
-          Debug(
-            "Failed to validate committed value for forwarded read result from client id %lu, seq num %lu",
-            curr_client_id,
-            curr_client_seq_num
-          );
-          return;
-        }
-      }
-    }
-  }
-
   std::string curr_key = fwdReadResult.key();
   std::string curr_value = fwdReadResult.value();
 
-  // if there is an actual value, expect matches
-  if (curr_value.length() > 0) {
-    UW_ASSERT(write.key() == curr_key);
-    if (hasDep) {
-      UW_ASSERT(write.prepared_value() == curr_value);
-      UW_ASSERT(google::protobuf::util::MessageDifferencer::Equals(write.prepared_timestamp(), fwdReadResult.timestamp()));
+  proto::Write write;
+  bool hasDep = fwdReadResultMsg.has_dep();
+  proto::Dependency dep;
+  bool addReadset = fwdReadResultMsg.add_readset();
+  // only if addReadset is true will there be dep or committed proofs
+  if (addReadset) {
+    if (!CheckPreparedCommittedEvidence(fwdReadResultMsg, write, dep)) {
+      return;
     }
+    // if there is an actual value, expect matches
+    if (curr_value.length() > 0) {
+      UW_ASSERT(write.key() == curr_key);
+      if (hasDep) {
+        UW_ASSERT(write.prepared_value() == curr_value);
+        UW_ASSERT(google::protobuf::util::MessageDifferencer::Equals(write.prepared_timestamp(), fwdReadResult.timestamp()));
+      }
+      else {
+        UW_ASSERT(write.committed_value() == curr_value);
+        UW_ASSERT(google::protobuf::util::MessageDifferencer::Equals(write.committed_timestamp(), fwdReadResult.timestamp()));
+      }
+    }
+    // otherwise the write should be empty
     else {
-      UW_ASSERT(write.committed_value() == curr_value);
-      UW_ASSERT(google::protobuf::util::MessageDifferencer::Equals(write.committed_timestamp(), fwdReadResult.timestamp()));
+      UW_ASSERT(!write.has_key());
     }
-  }
-  // otherwise the write should be empty
-  else {
-    UW_ASSERT(!write.has_key());
-  }
 
-  // curr_key is essentially what the forwarding client is claiming is the key
-  // write contains the server's claim as to what the key is
-  // these two should match
-  // also if value is empty, then no need to check since server makes no claims about it
-  if (curr_value.length() > 0 && curr_key != write.key()) {
-    Debug(
-      "Mismatch in forwarded key and the server key: from client id %lu, seq num %lu, forwarded key %s, server key %s",
-      curr_client_id, 
-      curr_client_seq_num,
-      BytesToHex(curr_key, 16).c_str(),
-      BytesToHex(write.key(), 16).c_str()
-    );
-    return;
+    // curr_key is essentially what the forwarding client is claiming is the key
+    // write contains the server's claim as to what the key is
+    // these two should match
+    // also if value is empty, then no need to check since server makes no claims about it
+    if (curr_value.length() > 0 && curr_key != write.key()) {
+      Debug(
+        "Mismatch in forwarded key and the server key: from client id %lu, seq num %lu, forwarded key %s, server key %s",
+        curr_client_id, 
+        curr_client_seq_num,
+        BytesToHex(curr_key, 16).c_str(),
+        BytesToHex(write.key(), 16).c_str()
+      );
+      return;
+    }
   }
 
   Debug(
@@ -428,7 +361,7 @@ void Client2Client::HandleForwardReadResultMessage(const proto::ForwardReadResul
     BytesToHex(curr_value, 16).c_str()
   );
   // tell valClient about this forwardedReadResult
-  valClient->ProcessForwardReadResult(curr_client_id, curr_client_seq_num, fwdReadResult, dep, hasDep);
+  valClient->ProcessForwardReadResult(curr_client_id, curr_client_seq_num, fwdReadResult, dep, hasDep, addReadset);
 }
 
 void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg) {
@@ -463,6 +396,93 @@ void Client2Client::HandleFinishValidateTxnMessage(const proto::FinishValidateTx
   endorseClient->AddValidation(peer_client_id, valTxnDigest, signedMsg);
 }
 
+bool Client2Client::CheckPreparedCommittedEvidence(const proto::ForwardReadResultMessage &fwdReadResultMsg, 
+    proto::Write &write, proto::Dependency &dep) {
+  uint64_t curr_client_id = fwdReadResultMsg.client_id();
+  uint64_t curr_client_seq_num = fwdReadResultMsg.client_seq_num();
+
+  // if has dependency, then this is based on a prepared txn
+  if (fwdReadResultMsg.has_dep()) {
+    if (params.validateProofs && params.signedMessages && params.verifyDeps) {
+      if (!ValidateDependency(fwdReadResultMsg.dep(), config, params.readDepSize, 
+          keyManager, verifier)) {
+        Debug(
+          "Invalid dependency on forwarded read result from client id %lu, seq num %lu",
+          curr_client_id, 
+          curr_client_seq_num
+        );
+        return false;
+      }
+    }
+    dep = fwdReadResultMsg.dep();
+    write = fwdReadResultMsg.dep().write();
+  } 
+  else {
+    // otherwise can check committed proof and signature
+
+    if (params.validateProofs && params.signedMessages) {
+      // check server signature
+      if (fwdReadResultMsg.has_signed_write()) {
+        proto::SignedMessage signedWrite = fwdReadResultMsg.signed_write();
+        if (!verifier->Verify(keyManager->GetPublicKey(signedWrite.process_id()),
+            signedWrite.data(), signedWrite.signature())) {
+          Debug(
+            "Invalid server signature on forwarded read result from client id %lu, seq num %lu", 
+            curr_client_id, 
+            curr_client_seq_num
+          );
+          return false;
+        }
+
+        write.ParseFromString(signedWrite.data());
+      }
+      else {
+        if (fwdReadResultMsg.has_write() && fwdReadResultMsg.write().has_committed_value()) {
+          Debug(
+            "Missing server signature on forwarded read result with committed value from client id %lu, seq num %lu", 
+            curr_client_id, 
+            curr_client_seq_num
+          );
+          return false;
+        }
+
+        write = fwdReadResultMsg.write();
+      }
+    }
+    else {
+      write = fwdReadResultMsg.write();
+    }
+      
+    if (params.validateProofs) {
+      // check committed proof
+      if (write.has_committed_value() && write.has_committed_timestamp()) {
+        if (!fwdReadResultMsg.has_proof()) {
+          Debug(
+            "Missing committed value proof for forwarded read result from client id %lu, seq num %lu",
+            curr_client_id,
+            curr_client_seq_num
+          );
+          return false;
+        }
+        
+        std::string committedTxnDigest = TransactionDigest(fwdReadResultMsg.proof().txn(), params.hashDigest);
+        if (!ValidateTransactionWrite(fwdReadResultMsg.proof(), &committedTxnDigest,
+            write.key(), write.committed_value(), write.committed_timestamp(),
+            config, params.signedMessages, keyManager, verifier)) {
+          Debug(
+            "Failed to validate committed value for forwarded read result from client id %lu, seq num %lu",
+            curr_client_id,
+            curr_client_seq_num
+          );
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
 void Client2Client::ValidationThreadFunction() {
   ::SyncClient syncClient(valClient);
   for(;;) {
@@ -472,8 +492,8 @@ void Client2Client::ValidationThreadFunction() {
     uint64_t curr_client_seq_num = valInfo->txn_client_seq_num;
     Timestamp curr_ts = valInfo->txn_ts;
     ValidationTransaction *valTxn = valInfo->valTxn;
-    std::cerr << std::this_thread::get_id() << " will validate for client " << curr_client_id 
-              << ", seq num " << curr_client_seq_num << std::endl;
+    // std::cerr << std::this_thread::get_id() << " will validate for client " << curr_client_id 
+    //           << ", seq num " << curr_client_seq_num << std::endl;
 
     valClient->SetThreadValTxnId(curr_client_id, curr_client_seq_num);
     valClient->SetTxnTimestamp(curr_client_id, curr_client_seq_num, curr_ts);

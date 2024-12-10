@@ -43,8 +43,9 @@ for j in `seq 0 $((NUM_GROUPS-1))`; do
 	#echo Starting Group $j
 	for i in `seq 0 $((N-1))`; do
 		#echo Starting Replica $(($i+$j*$N))
-		DEBUG=store/$STORE/* store/server --config_path $CONFIG --group_idx $j --num_groups $NUM_GROUPS --num_shards $NUM_GROUPS \
+		store/server --config_path $CONFIG --group_idx $j --num_groups $NUM_GROUPS --num_shards $NUM_GROUPS \
 			--replica_idx $i --protocol $PROTOCOL --debug_stats --num_client_hosts 2 \
-			--indicus_key_path $KEY_PATH --data_file_path "/usr/local/etc/tpcc-1-warehouse" &> server$(($i+$j*$N)).out &
+			--indicus_key_path $KEY_PATH --data_file_path "/usr/local/etc/tpcc-1-warehouse" \
+			--indicus_hash_digest=true --indicus_verify_deps=false &> server$(($i+$j*$N)).out &
 	done;
 done;

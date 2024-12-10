@@ -27,6 +27,7 @@
 #ifndef _VALIDATION_CLIENT_API_H_
 #define _VALIDATION_CLIENT_API_H_
 
+#include "lib/transport.h"
 #include "store/common/frontend/client.h"
 #include "store/common/promise.h"
 #include "store/common/timestamp.h"
@@ -55,7 +56,7 @@ typedef std::function<void(int, const std::string &)> validation_read_timeout_ca
 // on a different thread, client2client will call ProcessForwardReadResult upon receiving forwarded read results
 class ValidationClient : public ::Client {
  public:
-  ValidationClient(uint64_t client_id, uint64_t nshards, uint64_t ngroups, Partitioner *part);
+  ValidationClient(Transport *transport, uint64_t client_id, uint64_t nshards, uint64_t ngroups, Partitioner *part);
   virtual ~ValidationClient();
 
   // Begin a transaction.
@@ -87,7 +88,7 @@ class ValidationClient : public ::Client {
 
   // either fill one of the pending validation gets or put into readset for future validation get
   void ProcessForwardReadResult(uint64_t txn_client_id, uint64_t txn_client_seq_num, 
-    const proto::ForwardReadResult &fwdReadResult, const proto::Dependency &dep, bool hasDep);
+    const proto::ForwardReadResult &fwdReadResult, const proto::Dependency &dep, bool hasDep, bool addReadset);
 
   // return completed transaction for requested id
   proto::Transaction *GetCompletedTxn(uint64_t txn_client_id, uint64_t txn_client_seq_num);
@@ -96,7 +97,11 @@ class ValidationClient : public ::Client {
   struct PendingValidationGet {
     PendingValidationGet(uint64_t txn_client_id, uint64_t txn_client_seq_num) : 
       txn_client_id(txn_client_id), txn_client_seq_num(txn_client_seq_num) {}
-    ~PendingValidationGet() {}
+    ~PendingValidationGet() {
+      if (timeout != nullptr) {
+        delete timeout;
+      }
+    }
     uint64_t txn_client_id;
     uint64_t txn_client_seq_num;
     std::string key;
@@ -104,6 +109,7 @@ class ValidationClient : public ::Client {
     Timestamp ts;
     validation_read_callback vrcb;
     validation_read_timeout_callback vrtcb;
+    Timeout *timeout;
   };
 
   // for a (txn_client_id, txn_client_seq_num) pair, keep track of all relevant transaction state
@@ -142,6 +148,8 @@ class ValidationClient : public ::Client {
   void GetThreadValTxnId(uint64_t *txn_client_id, uint64_t *txn_client_seq_num);
   std::string ToTxnId(uint64_t txn_client_id, uint64_t txn_client_seq_num);
 
+  // transport for timeout functionality
+  Transport *transport;
   // My own client ID
   uint64_t client_id;
   // Number of shards.

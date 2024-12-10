@@ -7,7 +7,7 @@ CONFIG="shard-r1.config"
 CLIENTS_CONFIG="clients-r${CLIENTS}.config"
 PROTOCOL="sintr"
 STORE=${PROTOCOL}store
-DURATION=10
+DURATION=30
 ZIPF=0.0
 NUM_OPS_TX=2
 NUM_KEYS_IN_DB=1
@@ -31,7 +31,7 @@ esac;
 done
 
 N=$((5*$F+1))
-DEBUG_FILES="store/$STORE/* store/$STORE/validation/*"
+# DEBUG_FILES="store/$STORE/* store/$STORE/validation/*"
 
 echo '[1] Starting new clients'
 for i in `seq 1 $((CLIENTS-1))`; do
@@ -40,15 +40,17 @@ for i in `seq 1 $((CLIENTS-1))`; do
   DEBUG=$DEBUG_FILES store/benchmark/async/benchmark --config_path $CONFIG --clients_config_path $CLIENTS_CONFIG --num_groups $NUM_GROUPS \
     --num_shards $NUM_GROUPS --num_client_hosts $CLIENTS \
     --protocol_mode $PROTOCOL --num_keys $NUM_KEYS_IN_DB --benchmark tpcc-sync --num_ops_txn $NUM_OPS_TX \
-    --exp_duration $DURATION --client_id $i --warmup_secs 0 --cooldown_secs 0 \
-    --key_selector zipf --zipf_coefficient $ZIPF --indicus_key_path $KEY_PATH &> client-$i.out &
+    --exp_duration $DURATION --client_id $i --warmup_secs 5 --cooldown_secs 5 \
+    --key_selector zipf --zipf_coefficient $ZIPF --indicus_key_path $KEY_PATH \
+    --indicus_hash_digest=true --indicus_verify_deps=false --sintr_debug_endorse_check=true &> client-$i.out &
 done;
 #valgrind
 DEBUG=$DEBUG_FILES store/benchmark/async/benchmark --config_path $CONFIG --clients_config_path $CLIENTS_CONFIG --num_groups $NUM_GROUPS \
   --num_shards $NUM_GROUPS --num_client_hosts $CLIENTS --protocol_mode $PROTOCOL --num_keys $NUM_KEYS_IN_DB --benchmark tpcc-sync \
-  --num_ops_txn $NUM_OPS_TX --exp_duration $DURATION --client_id 0 --warmup_secs 0 \
-  --cooldown_secs 0 --key_selector zipf --zipf_coefficient $ZIPF  \
-  --stats_file "stats-0.json" --indicus_key_path $KEY_PATH &> client-0.out &
+  --num_ops_txn $NUM_OPS_TX --exp_duration $DURATION --client_id 0 --warmup_secs 5 \
+  --cooldown_secs 5 --key_selector zipf --zipf_coefficient $ZIPF  \
+  --stats_file "stats-0.json" --indicus_key_path $KEY_PATH \
+  --indicus_hash_digest=true --indicus_verify_deps=false --sintr_debug_endorse_check=true &> client-0.out &
 
 
 sleep $((DURATION+3))

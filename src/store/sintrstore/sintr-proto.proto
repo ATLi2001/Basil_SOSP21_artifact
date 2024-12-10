@@ -414,6 +414,8 @@ message ForwardReadResultMessage {
   }
   // shows dependency which can be verified
   optional Dependency dep = 8;
+  // tell validating client whether to add to readset
+  optional bool add_readset = 9;
 }
 
 message FinishValidateTxnMessage {

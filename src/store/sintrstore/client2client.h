@@ -81,7 +81,7 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   // forward server read reply to other peers
   void ForwardReadResultMessage(const std::string &key, const std::string &value, const Timestamp &ts,
     const proto::CommittedProof &proof, const std::string &serializedWrite, const std::string &serializedWriteTypeName, 
-    const proto::Dependency &dep, bool hasDep);
+    const proto::Dependency &dep, bool hasDep, bool addReadset);
 
   // given a new policy, update the endorsement policy for this client 
   // also contact additional peers as necessary
@@ -118,6 +118,10 @@ class Client2Client : public TransportReceiver, public PingInitiator, public Pin
   void HandleBeginValidateTxnMessage(const TransportAddress &remote, const proto::BeginValidateTxnMessage &beginValTxnMsg);
   void HandleForwardReadResultMessage(const proto::ForwardReadResultMessage &fwdReadResultMsg);
   void HandleFinishValidateTxnMessage(const proto::FinishValidateTxnMessage &finishValTxnMsg);
+  // check if fwdReadResultMsg is valid based on either prepared dependency or committed proof
+  // also extract write and dep from fwdReadResultMsg
+  bool CheckPreparedCommittedEvidence(const proto::ForwardReadResultMessage &fwdReadResultMsg, 
+    proto::Write &write, proto::Dependency &dep);
   void ValidationThreadFunction();
   bool ValidateHMACedMessage(const proto::SignedMessage &signedMessage, std::string &data);
   // create an hmac from msg and place into signature

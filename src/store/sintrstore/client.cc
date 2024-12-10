@@ -229,11 +229,13 @@ void Client::Get(const std::string &key, get_callback gcb,
           endorseClient->UpdatePolicyCache(policyMsg.policy_id(), policy);
           c2client->HandlePolicyUpdate(policy);
         }
-        c2client->ForwardReadResultMessage(key, val, ts, proof, serializedWrite, serializedWriteTypeName, dep, hasDep);
       }
       if (hasDep) {
         *txn.add_deps() = dep;
       }
+      
+      c2client->ForwardReadResultMessage(key, val, ts, proof, serializedWrite, serializedWriteTypeName, dep, hasDep, addReadSet);
+
       gcb(status, key, val, ts);
     };
     read_timeout_callback rtcb = gtcb;
