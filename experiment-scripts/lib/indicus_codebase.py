@@ -38,7 +38,8 @@ class IndicusCodebase(ExperimentCodebase):
                     config['bin_directory_name'], config['client_bin_name'])
             exp_directory = local_exp_directory
             config_path = os.path.join(local_exp_directory, config['network_config_file_name'])
-            client_config_path = os.path.join(local_exp_directory, config['sintr_protocol_settings']['client_network_config_file_name'])
+            if 'sintr_protocol_settings' in config:
+                client_config_path = os.path.join(local_exp_directory, config['sintr_protocol_settings']['client_network_config_file_name'])
             stats_file = os.path.join(exp_directory,
                     config['out_directory_name'], 'client-%d-%d' % (i, j),
                     'client-%d-%d-%d-stats-%d.json' % (i, j, k, run))
@@ -48,7 +49,8 @@ class IndicusCodebase(ExperimentCodebase):
                     config['bin_directory_name'], config['client_bin_name'])
             exp_directory = remote_exp_directory
             config_path = os.path.join(remote_exp_directory, config['network_config_file_name'])
-            client_config_path = os.path.join(remote_exp_directory, config['sintr_protocol_settings']['client_network_config_file_name'])
+            if 'sintr_protocol_settings' in config:
+                client_config_path = os.path.join(remote_exp_directory, config['sintr_protocol_settings']['client_network_config_file_name'])
             stats_file = os.path.join(exp_directory,
                     config['out_directory_name'],
                     'client-%d-%d-%d-stats-%d.json' % (i, j, k, run))

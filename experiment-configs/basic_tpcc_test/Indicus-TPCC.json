@@ -8,8 +8,8 @@
     ["client_total", "client_processes_per_client_node",
       "client_threads_per_process"]
   ],
-  "replication_protocol": ["sintr"],
-  "client_protocol_mode": ["sintr"],
+  "replication_protocol": ["indicus"],
+  "client_protocol_mode": ["indicus"],
   "num_shards": [1],
   "num_groups": [1],
 
@@ -77,14 +77,6 @@
       "key_path": "/usr/local/etc/indicus-keys/donna"
     }
   ],
-  "sintr_protocol_settings": {
-    "client_network_config_file_name": "client.config",
-    "client_port": 7587,
-    "sintr_max_val_threads": 1,
-    "sintr_sign_fwd_read_results": true,
-    "sintr_sign_finish_validation": true,
-    "sintr_debug_endorse_check": false
-  },
   "experiment_name": "sintr",
   "codebase_name": "indicus",
   "_client_total": [
