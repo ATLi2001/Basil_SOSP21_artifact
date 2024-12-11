@@ -97,7 +97,7 @@ bool LocalBatchVerifier::Verify(crypto::PubKey *publicKey, const std::string &me
   //     BytesToHex(message, 1024).c_str());
   std::string hashStr;
   std::string rootSig;
-  Latency_Start(&hashLats[sched_getcpu()]);
+  // Latency_Start(&hashLats[sched_getcpu()]);
   if (!BatchedSigs::computeBatchedSignatureHash(&signature, &message, publicKey,
       hashStr, rootSig, merkleBranchFactor)) {
     Debug("(CPU:%d) Signature batch hash computation failed: Sig:[%s] with Msg:[%s].",
@@ -106,7 +106,7 @@ bool LocalBatchVerifier::Verify(crypto::PubKey *publicKey, const std::string &me
         BytesToHex(message, 1024).c_str());
     return false;
   }
-  Latency_End(&hashLats[sched_getcpu()]);
+  // Latency_End(&hashLats[sched_getcpu()]);
   std::unique_lock<std::mutex> lock(cacheMutex);
   auto itr = cache.find(rootSig);
   if (itr == cache.end()) {
