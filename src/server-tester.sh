@@ -1,9 +1,11 @@
 #!/bin/bash
 
+PROTOCOL=$1
+
 F=0
 NUM_GROUPS=1
 CONFIG="shard-r1.config"
-PROTOCOL="sintr"
+# PROTOCOL="sintr"
 STORE=${PROTOCOL}store
 DURATION=10
 ZIPF=0.0
