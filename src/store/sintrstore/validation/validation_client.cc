@@ -120,7 +120,7 @@ void ValidationClient::Get(const std::string &key, get_callback gcb,
       // pendingGet fulfilled
       return;
     }
-    Panic("Timeout triggered for txn_id %s key %s", txn_id.c_str(), pendingGet->key.c_str());
+    Panic("Timeout triggered for txn_id %s key %s", txn_id.c_str(), BytesToHex(pendingGet->key, 16).c_str());
     // pendingGet->vrtcb(REPLY_TIMEOUT, pendingGet->key);
   });
 

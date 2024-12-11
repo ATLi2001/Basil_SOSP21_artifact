@@ -42,7 +42,7 @@ for i in `seq 1 $((CLIENTS-1))`; do
     --protocol_mode $PROTOCOL --num_keys $NUM_KEYS_IN_DB --benchmark tpcc-sync --num_ops_txn $NUM_OPS_TX \
     --exp_duration $DURATION --client_id $i --warmup_secs 5 --cooldown_secs 5 \
     --key_selector zipf --zipf_coefficient $ZIPF --indicus_key_path $KEY_PATH \
-    --indicus_hash_digest=true --indicus_verify_deps=false --sintr_debug_endorse_check=true &> client-$i.out &
+    --indicus_hash_digest=true --indicus_verify_deps=false --sintr_debug_endorse_check=false &> client-$i.out &
 done;
 #valgrind
 DEBUG=$DEBUG_FILES store/benchmark/async/benchmark --config_path $CONFIG --clients_config_path $CLIENTS_CONFIG --num_groups $NUM_GROUPS \
@@ -50,7 +50,7 @@ DEBUG=$DEBUG_FILES store/benchmark/async/benchmark --config_path $CONFIG --clien
   --num_ops_txn $NUM_OPS_TX --exp_duration $DURATION --client_id 0 --warmup_secs 5 \
   --cooldown_secs 5 --key_selector zipf --zipf_coefficient $ZIPF  \
   --stats_file "stats-0.json" --indicus_key_path $KEY_PATH \
-  --indicus_hash_digest=true --indicus_verify_deps=false --sintr_debug_endorse_check=true &> client-0.out &
+  --indicus_hash_digest=true --indicus_verify_deps=false --sintr_debug_endorse_check=false &> client-0.out &
 
 
 sleep $((DURATION+3))
